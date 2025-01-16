@@ -1,0 +1,43 @@
+site_name: OSDU CIButler Documentation
+site_description: OSDU CI Butler
+site_author: Shane Hutchins
+
+# Repository
+repo_url: https://community.opengroup.org/osdu/ui/cibutler
+repo_name: cibutler
+
+# Copyright
+copyright: Copyright &copy; 2025 Open Subsurface Data Universe Software / OSDU Community Utilities
+
+theme:
+  name: material
+  palette:
+    - scheme: default
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - scheme: slate
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  font:
+    text: Roboto
+    code: Roboto Mono
+
+markdown_extensions:
+  - admonition
+  - codehilite
+  - meta
+  - extra
+
+plugins:
+  - search
+  - git-revision-date
+  - termynal
+
+extra_javascript:
+  - https://unpkg.com/mermaid@8.4.6/dist/mermaid.min.js

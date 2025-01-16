@@ -1,0 +1,69 @@
+[project]
+name = "cibutler"
+version = "0.1.0"
+description = "OSDU CImpl install utility"
+readme = "README.md"
+authors = [{name = "Shane Hutchins", email = "shane.hutchins@hitachids.com"}]
+keywords = ["osdu"]
+maintainers = [
+  {name = "Shane Hutchins", email = "shane.hutchins@hitachids.com"}
+]
+license = {text = "Apache-2.0"}
+requires-python = ">=3.11,<4.0"
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "License :: OSI Approved :: Apache Software License",
+    "Private :: Do Not Upload",
+    "Intended Audience :: OSDU Developers",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+]
+dependencies = [
+    "inquirer>=3.4.0",
+    "kubernetes>=31.0.0",
+    "osdu-api[all]==0.28.0.dev904+ab6e3f55",
+    "pick>=2.4.0",
+    "py-cpuinfo==9.0.0",
+    "python-dateutil>=2.9.0.post0",
+    "python-keycloak>=5.1.1",
+    "requests>=2.32.3",
+    "rich>=13.9.4",
+    "ruamel-yaml>=0.18.10",
+    "typer>=0.15.1",
+]
+
+[project.urls]
+Homepage = "https://osdu.pages.opengroup.org/ui/cibutler/"
+Issues = "https://community.opengroup.org/osdu/ui/cibutler/-/issues"
+
+
+[[tool.uv.index]]
+name = "pyosduapi"
+url = "https://community.opengroup.org/api/v4/projects/148/packages/pypi/simple"
+
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project.scripts]
+cibutler = "cibutler.main:cli"
+
+[tool.poetry.scripts]
+cibutler = "cibutler.main:cli"
+
+#[project.optional-dependencies]
+#test = ["pytest"]
+
+[[tool.poetry.source]]
+name = "osdu-api"
+url = "https://community.opengroup.org/api/v4/projects/148/packages/pypi/simple"
+priority = "supplemental"
+
+[tool.uv]
+dev-dependencies = ["pytest"]
+package = true
+# uv run pytest
+
+[tool.uv.sources]
+osdu-api = { index = "pyosduapi" }

@@ -1,0 +1,37 @@
+variables:
+  UV_VERSION: 0.5
+  PYTHON_VERSION: 3.13
+  BASE_LAYER: bookworm-slim
+
+uv:
+  stage: build
+  image: ghcr.io/astral-sh/uv:$UV_VERSION-python$PYTHON_VERSION-$BASE_LAYER
+  tags: ["osdu-medium"]
+  script:
+    - cd cibutler
+    - uv run cibutler
+    - uv run cibutler docs generate --name cibutler --output docs/docs/commands_reference.md
+    - cd docs
+    - pip install --default-timeout=1000 mkdocs-material
+    - pip install termynal
+    - pip install mkdocs-git-revision-date-plugin
+    - mkdocs build --site-dir ../public
+  needs: []
+  artifacts:
+    paths:
+      - public
+  when: manual
+
+run-test-pages:
+  stage: build
+  image: python:latest
+  script:
+    - cd docs
+    - pip install mkdocs-material
+    - pip install termynal
+    - pip install mkdocs-git-revision-date-plugin
+    - mkdocs build --site-dir ../test
+  artifacts:
+    paths:
+    - test
+  when: manual
