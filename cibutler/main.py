@@ -2,6 +2,7 @@
 # CI Butler Shane Hutchins
 import typer
 from typing_extensions import Annotated
+from typing import Optional
 import subprocess
 from rich.console import Console
 from rich.prompt import Prompt, Confirm
@@ -31,6 +32,7 @@ from cibutler.cimpl import (
 import cibutler.osdu as osdu
 import cibutler.cihelm as cihelm
 import cibutler.docs as docs
+import cibutler.conf as conf
 
 # from kubernetes.client import configuration
 # from kubernetes.client.rest import ApiException
@@ -44,7 +46,7 @@ cli = typer.Typer(
     no_args_is_help=True,
 )
 
-__version__ = "0.1.0"
+__version__ = "0.1.1"
 
 cli.registered_commands += cik8s.cli.registered_commands
 cli.registered_commands += cimpl.cli.registered_commands
@@ -55,7 +57,7 @@ cli.registered_commands += cihelm.cli.registered_commands
 cli.add_typer(docs.cli, name="docs", help="Generate documentation", hidden=True)
 
 
-def version_callback(value: bool):
+def _version_callback(value: bool):
     if value:
         console.print(f"cibutler Version: {__version__}")
         raise typer.Exit()
@@ -166,8 +168,9 @@ def configure(
 
 
 @cli.command(rich_help_panel="CI Commands", hidden=True)
-def old_install(
-    name: str = typer.Option(default="osdu-baremetal"),
+def helm_install(
+    service_name: Annotated[str, typer.Option(help="OSDU service name")],
+    name: Annotated[str, typer.Option(help="helm chart name")],
     force: bool = typer.Option(False, "--force", help="No confirmation prompt"),
     file: Path = typer.Option(
         "custom-values.yaml",
@@ -187,19 +190,7 @@ def old_install(
     if force or Confirm.ask(
         f"Chart: {chart}\nName: {name}\nFile: {file}\nInstall?", default=True
     ):
-        console.print(helm_install(name=name, file=file, chart=chart))
-
-
-def helm_install(
-    name="osdu-baremetal",
-    file="custom-values.yaml",
-    chart="oci://community.opengroup.org:5555/osdu/platform/deployment-and-operations/infra-gcp-provisioning/gc-helm/osdu-gc-baremetal",
-):
-    # helm install -f custom-values.yaml osdu-baremetal oci://community.opengroup.org:5555/osdu/platform/deployment-and-operations/infra-gcp-provisioning/gc-helm/osdu-gc-baremetal
-    output = subprocess.Popen(
-        ["helm", "install", "-f", file, name, chart], stdout=subprocess.PIPE
-    ).communicate()[0]
-    return output.decode("ascii").strip()
+        console.print(cihelm.helm_install(name=name, file=file, chart=chart))
 
 
 @cli.command(rich_help_panel="Troubleshooting Commands", deprecated=True)
@@ -477,6 +468,20 @@ def post_checks():
     else:
         error_console.print("istio not ready")
         raise typer.Exit(1)
+
+
+@cli.callback()
+def main(
+    version: Annotated[
+        Optional[bool],
+        typer.Option(
+            "--version",
+            callback=_version_callback,
+            help="Show the application's version and exit",
+        ),
+    ] = None,
+):
+    pass
 
 
 if __name__ == "__main__":

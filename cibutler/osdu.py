@@ -362,8 +362,8 @@ def status(
     """
     base_url = base_url.rstrip("/")
     errors = 0
-    for endpt in sorted(conf.end_points):
-        r = get_info(conf.end_points[endpt]["api"], base_url=base_url)
+    for endpt in sorted(conf.osdu_end_points):
+        r = get_info(conf.osdu_end_points[endpt]["api"], base_url=base_url)
         if r:
             console.print(f":white_check_mark: {endpt.title()}")
         else:
@@ -389,16 +389,16 @@ def info(
     """
     base_url = base_url.rstrip("/")
     if service:
-        if service in conf.end_points:
-            r = get_info(conf.end_points[service]["api"], base_url=base_url)
+        if service in conf.osdu_end_points:
+            r = get_info(conf.osdu_end_points[service]["api"], base_url=base_url)
             if r:
                 console.print(f"{service.title()}:")
                 console.print(r)
         else:
             error_console.print(f"Unknown service: {service}")
     else:
-        for endpt in sorted(conf.end_points):
-            r = get_info(conf.end_points[endpt]["api"], base_url=base_url)
+        for endpt in sorted(conf.osdu_end_points):
+            r = get_info(conf.osdu_end_points[endpt]["api"], base_url=base_url)
             if r:
                 console.print(f"{endpt.title()}:")
                 console.print(r)
