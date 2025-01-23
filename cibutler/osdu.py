@@ -15,6 +15,7 @@ from osdu_api.model.entitlements.group_member import GroupMember
 from osdu_api.model.search.query_request import QueryRequest
 from requests.exceptions import ConnectionError
 import tenacity
+import json
 from typing_extensions import Annotated
 import cibutler.cimpl as cimpl
 import cibutler.conf as conf
@@ -84,6 +85,7 @@ def refresh_token(
 
 @cli.command(rich_help_panel="OSDU Related Commands")
 def legal_tags(
+    output_json: Annotated[bool, typer.Option("--json", help="Output as JSON")] = False,
     legal_tag: Annotated[str, typer.Option(help="Legal Tag")] = None,
     base_url: Annotated[
         str, typer.Option(envvar="BASE_URL", help="BASE URL for OSDU")
@@ -115,8 +117,12 @@ def legal_tags(
     except ConnectionError as err:
         error_console.print(f"ConnectionError {legal_url}: {err}")
         raise typer.Exit(1)
+
     if r.ok:
-        console.print(r.json())
+        if output_json:
+            console.print_json(json.dumps(r.json()))
+        else:
+            console.print(r.json())
     else:
         error_console.print(f"Error {legal_url} list_legal_tags: {r.status_code}")
 

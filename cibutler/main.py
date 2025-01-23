@@ -46,7 +46,7 @@ cli = typer.Typer(
     no_args_is_help=True,
 )
 
-__version__ = "0.1.1"
+__version__ = "0.1.2"
 
 cli.registered_commands += cik8s.cli.registered_commands
 cli.registered_commands += cimpl.cli.registered_commands
