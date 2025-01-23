@@ -1,6 +1,6 @@
 [project]
 name = "cibutler"
-version = "0.1.0"
+version = "0.1.1"
 description = "OSDU CImpl install utility"
 readme = "README.md"
 authors = [{name = "Shane Hutchins", email = "shane.hutchins@hitachids.com"}]
@@ -25,6 +25,7 @@ dependencies = [
     "osdu-api[all]==0.28.0.dev904+ab6e3f55",
     "pick>=2.4.0",
     "py-cpuinfo==9.0.0",
+    "pyperclip>=1.9.0",
     "python-dateutil>=2.9.0.post0",
     "python-keycloak>=5.1.1",
     "requests>=2.32.3",

@@ -6,6 +6,7 @@ from keycloak import KeycloakAdmin
 from keycloak import KeycloakOpenIDConnection
 import keycloak.exceptions
 import requests
+import pyperclip
 import cibutler.cimpl as cimpl
 
 console = Console()
@@ -20,6 +21,7 @@ KEYCLOAK_URL = "http://keycloak.localhost/"
 
 @cli.command(rich_help_panel="Keycloak Related Commands")
 def token(
+    clip: Annotated[bool, typer.Option(help="Copy Access token to clipboard")] = False,
     realm: Annotated[
         str,
         typer.Option(envvar="KEYCLOAK_REALM", help="Keycloak Realm/Data Partition ID"),
@@ -57,6 +59,10 @@ def token(
             console.print(r.json())
         else:
             console.print(r.json()["access_token"])
+
+        if clip:
+            pyperclip.copy(r.json()["access_token"])
+
     else:
         console.print(f"error {r.status_code}")
 

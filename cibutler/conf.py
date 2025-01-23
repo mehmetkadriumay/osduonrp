@@ -1,4 +1,4 @@
-end_points = {
+osdu_end_points = {
     "entitlements": {
         "api": "/api/entitlements/v2",
         "repo": "https://osdu.pages.opengroup.org/platform/security-and-compliance/entitlements/",
@@ -9,6 +9,7 @@ end_points = {
         "repo": "https://community.opengroup.org/osdu/platform/security-and-compliance/policy",
         "doc": "https://osdu.pages.opengroup.org/platform/security-and-compliance/policy/",
         "swagger": "/api/policy/v1/docs",
+        "helm": "ioci://community.opengroup.org:5555/osdu/platform/security-and-compliance/policy/cimpl-helm/cimpl-policy-deploy",
     },
     "partition": {
         "api": "/api/partition/v1",

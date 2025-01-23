@@ -1,0 +1,50 @@
+variables:
+  UV_VERSION: 0.5.5
+  PYTHON_VERSION: 3.13
+  BASE_LAYER: bookworm-slim
+  PACKAGE: cibutler
+  UV_PUBLISH_URL: "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/pypi"  
+  UV_PUBLISH_USERNAME: "gitlab-ci-token"  
+  UV_PUBLISH_PASSWORD: "${CI_JOB_TOKEN}"  
+
+stages:
+  - review
+  - build
+  - test
+  - linters
+  - scan
+  - deploy
+  - publish
+
+deploy-pages:
+  stage: build
+  image: ghcr.io/astral-sh/uv:$UV_VERSION-python$PYTHON_VERSION-$BASE_LAYER
+  tags: ["osdu-small"]
+  pages: true # specifies that this is a Pages job
+  script:
+    - uv run $PACKAGE
+    - uv run $PACKAGE docs generate --name $PACKAGE --output docs/docs/commands_reference.md
+    - apt update
+    - apt install git -y
+    - pip install --default-timeout=1000 mkdocs-material
+    - pip install termynal
+    - pip install mkdocs-git-revision-date-plugin
+    - cd docs
+    - mkdocs build --site-dir ../public
+  needs: []
+  artifacts:
+    paths:
+      - public
+  when: manual
+
+publish:
+  stage: build
+  image: ghcr.io/astral-sh/uv:$UV_VERSION-python$PYTHON_VERSION-$BASE_LAYER
+  tags: ["osdu-small"]
+  script:
+    - uv run $PACKAGE
+    - uv build
+    - uv run --with $PACKAGE --no-project -- python -c "import $PACKAGE"
+    - uv publish dist/*.whl
+  needs: []
+  when: manual
