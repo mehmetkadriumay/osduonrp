@@ -7,13 +7,20 @@ The CI Butler is supported on Mac, Windows and Linux.
 CI Butler also have built-in support for managing users and client ids in keycloak and adding users to groups OSDU.
 This can be especially useful to when you need to redeploy your OSDU environment or test as part of a pipeline.
 
-CI Butler has built-in help:
+!!! warning "Experimental"
 
-- `cibutler --help`
-- `cibutler command --help`
+    CI Butler is in development and should be considered experimental. Please report any issues.
 
-There is also a Command Reference on all the commands:
+!!! info "Additional Documentation"
+    **CI Butler has built-in help**:
 
-- See [Command Reference](./commands_reference.md)
+     - `cibutler --help` for overall help
+     - `cibutler command --help` for help on a individual command
+
+    There is also a command feference on all the commands and options:
+
+    - See [Command Reference](./commands_reference.md).
+
+For details on this project see [project details](./project.md).
 
 Last updated on {{ git_revision_date }}

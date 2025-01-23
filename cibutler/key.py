@@ -498,13 +498,12 @@ def add_users(
     Utility for import/reloading users into keycloak
 
     Example JSON:
-    [
+[
   {
     "username": "jsmith",
     "firstName": "John",
     "lastName": "Smith",
     "email": "john@example.com",
-    }
   }
 ]
 
