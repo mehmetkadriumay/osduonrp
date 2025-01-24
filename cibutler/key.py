@@ -39,7 +39,7 @@ def token(
     ] = KEYCLOAK_URL,
 ):
     """
-    Get Access Bearer token from keycloak
+    Get Access Bearer token from keycloak :locked_with_key:
 
     If client-secret is not provided, client-secret will be retrieved from kubernetes secrets.
     """
@@ -495,30 +495,30 @@ def add_users(
     ] = "master",
 ):
     """
-    Utility for import/reloading users into keycloak
+        Utility for import/reloading users into keycloak
 
-    Example JSON:
-[
-  {
-    "username": "jsmith",
-    "firstName": "John",
-    "lastName": "Smith",
-    "email": "john@example.com",
-  }
-]
+        Example JSON:
+    [
+      {
+        "username": "jsmith",
+        "firstName": "John",
+        "lastName": "Smith",
+        "email": "john@example.com",
+      }
+    ]
 
-    Optionally if the json includes:
-    "enabled": true,
-    "emailVerified": true,
+        Optionally if the json includes:
+        "enabled": true,
+        "emailVerified": true,
 
-    Those values will be used in creation of the accounts.
-    Other values of the json will be ignored.
+        Those values will be used in creation of the accounts.
+        Other values of the json will be ignored.
 
-    save users:
-    cibutler list-users --json > users.json
-    
-    load users:
-    cibutler add-users --file users.json
+        save users:
+        cibutler list-users --json > users.json
+
+        load users:
+        cibutler add-users --file users.json
     """
     if file is None:
         error_console.print("No file")
@@ -561,7 +561,6 @@ def add_users(
                 raise typer.Exit(2)
 
             console.print(f"User {user['username']} added with id {new_user}")
-            
 
     elif file.is_dir():
         error_console.print("path is a directory, not yet supported")

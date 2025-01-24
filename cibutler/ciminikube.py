@@ -172,7 +172,7 @@ def delete(
     profile: Annotated[str, typer.Option()] = None,
 ):
     """
-    Uninstall/Delete CImpl
+    Uninstall/Delete CImpl :skull:
     """
     if profile:
         minikube_delete(profile=profile)

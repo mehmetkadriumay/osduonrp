@@ -18,11 +18,12 @@ However in future support could be added for: QEMU, Hyperkit, Hyper-V, KVM, Para
 
 ### Install and configure prerequisites
 
-If you intend to deploy CImpl locally you'll need the following.
+If you intend to deploy CImpl locally you'll need the following:
 
 1. Install docker desktop
 1. Install helm
 1. Install minikube
+1. Install kubectl if not already included in the above. CIButler attempts to be a pure python implementation but uses both APIs and `kubectl` to configure and deploy to kubernetes.
 1. Increase RAM in docker desktop to 24+ GB and restart docker
 1. Install uv (or pipx)
 

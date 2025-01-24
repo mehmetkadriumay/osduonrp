@@ -1,7 +1,14 @@
-from rich.console import Console
-import typer
 import os
 import requests
+from requests.exceptions import ConnectionError
+import typer
+from rich.console import Console
+from rich.table import Table
+import rich.progress
+import tenacity
+import json
+from pathlib import Path
+from typing_extensions import Annotated
 from osdu_api.auth.refresh_token import BaseTokenRefresher
 from osdu_api.clients.entitlements.entitlements_client import EntitlementsClient
 from osdu_api.clients.search.search_client import SearchClient
@@ -13,10 +20,6 @@ from osdu_api.clients.storage.record_client import RecordClient
 from osdu_api.clients.legal.legal_client import LegalClient
 from osdu_api.model.entitlements.group_member import GroupMember
 from osdu_api.model.search.query_request import QueryRequest
-from requests.exceptions import ConnectionError
-import tenacity
-import json
-from typing_extensions import Annotated
 import cibutler.cimpl as cimpl
 import cibutler.conf as conf
 
@@ -129,6 +132,7 @@ def legal_tags(
 
 @cli.command(rich_help_panel="OSDU Related Commands")
 def groups(
+    output_json: Annotated[bool, typer.Option("--json", help="Output as JSON")] = False,
     base_url: Annotated[
         str, typer.Option(envvar="BASE_URL", help="BASE URL for OSDU")
     ] = BASE_URL,
@@ -155,7 +159,10 @@ def groups(
 
     r = entitlement_client.get_groups_for_user()
     if r.ok:
-        console.print(r.json())
+        if output_json:
+            console.print_json(json.dumps(r.json()))
+        else:
+            console.print(r.json())
     else:
         error_console.print(
             f"Error {entitlements_url} get_groups_for_user: {r.status_code}"
@@ -164,6 +171,7 @@ def groups(
 
 @cli.command(rich_help_panel="OSDU Related Commands")
 def group_members(
+    output_json: Annotated[bool, typer.Option("--json", help="Output as JSON")] = False,
     group_email: Annotated[
         str, typer.Option("--group-email", "-g", help="Group email to lookup")
     ] = "users@osdu.group",
@@ -192,11 +200,19 @@ def group_members(
             token_refresher=cimpl_token_refresher,
         )
 
-    r = entitlement_client.get_group_members(
-        group_email=group_email, limit=limit, role=role
-    )
+    try:
+        r = entitlement_client.get_group_members(
+            group_email=group_email, limit=limit, role=role
+        )
+    except ConnectionError as err:
+        error_console.print(f"ConnectionError: {err}")
+        raise typer.Exit(1)
+
     if r.ok:
-        console.print(r.json())
+        if output_json:
+            console.print_json(json.dumps(r.json()))
+        else:
+            console.print(r.json())
     else:
         error_console.print(f"Error {r.status_code}")
 
@@ -225,10 +241,16 @@ def group_add(
         data_partition_id="osdu",
         token_refresher=cimpl_token_refresher,
     )
-    r = entitlement_client.create_group_member(
-        group_email=group_email,
-        group_member=GroupMember(email=email, role=role),
-    )
+
+    try:
+        r = entitlement_client.create_group_member(
+            group_email=group_email,
+            group_member=GroupMember(email=email, role=role),
+        )
+    except ConnectionError as err:
+        error_console.print(f"ConnectionError: {err}")
+        raise typer.Exit(1)
+
     if r.ok:
         console.print(r.json())
     else:
@@ -237,6 +259,10 @@ def group_add(
 
 @cli.command(rich_help_panel="OSDU Related Commands")
 def search(
+    output_json: Annotated[bool, typer.Option("--json", help="Output as JSON")] = False,
+    output_fancy: Annotated[
+        bool, typer.Option("--human", "-h", help="Output formatted for user")
+    ] = False,
     kind: str = "*:*:*:*",
     query: str = "",
     limit: int = 10,
@@ -259,11 +285,71 @@ def search(
         data_partition_id="osdu",
         token_refresher=cimpl_token_refresher,
     )
-    r = search_client.query_records(QueryRequest(kind=kind, query=query, limit=limit))
+
+    try:
+        r = search_client.query_records(
+            QueryRequest(kind=kind, query=query, limit=limit)
+        )
+    except ConnectionError as err:
+        error_console.print(f"ConnectionError: {err}")
+        raise typer.Exit(1)
+
     if r.ok:
-        console.print(r.json())
+        if output_json:
+            console.print_json(json.dumps(r.json()))
+        else:
+            count = 0
+            if "results" in r.json():
+                count = len(r.json()["results"])
+
+            if count and output_fancy:
+                display_search_results_fancy(r.json())
+            else:
+                console.print(r.json())
+
     else:
         error_console.print(f"Search error {r.status_code}")
+
+
+def display_search_results_fancy(data, show_kind=False):
+    count = len(data["results"])
+    if not count:
+        return
+    table = Table(title=f"Search Results ({count})")
+    table.add_column("ID", justify="full", style="cyan", no_wrap=True, min_width=25)
+    if show_kind:
+        table.add_column(
+            "Kind", justify="full", style="cyan", no_wrap=True, min_width=25
+        )
+    table.add_column(
+        "Authority", justify="center", style="green", no_wrap=True, max_width=10
+    )
+    table.add_column(
+        "Source", justify="center", style="green", no_wrap=True, max_width=8
+    )
+    table.add_column(
+        "Type", justify="center", style="green", no_wrap=True, min_width=15
+    )
+    table.add_column(
+        "Created", justify="center", style="green", no_wrap=True, max_width=11
+    )
+
+    for item in data["results"]:
+        created = item["createTime"]
+        if show_kind:
+            table.add_row(
+                item["id"],
+                item["kind"],
+                item["authority"],
+                item["source"],
+                item["type"],
+                created,
+            )
+        else:
+            table.add_row(
+                item["id"], item["authority"], item["source"], item["type"], created
+            )
+    console.print(table)
 
 
 @cli.command(rich_help_panel="OSDU Related Commands")
@@ -293,7 +379,11 @@ def record(
             data_partition_id="osdu",
             token_refresher=cimpl_token_refresher,
         )
-        r = dataset_dms_client.get_retrieval_instructions(record_id=record_id)
+        try:
+            r = dataset_dms_client.get_retrieval_instructions(record_id=record_id)
+        except ConnectionError as err:
+            error_console.print(f"ConnectionError: {err}")
+            raise typer.Exit(1)
     else:
         record_client = RecordClient(
             storage_url=base_url + "/api/storage/v2",
@@ -301,7 +391,11 @@ def record(
             data_partition_id="osdu",
             token_refresher=cimpl_token_refresher,
         )
-        r = record_client.get_latest_record(recordId=record_id)
+        try:
+            r = record_client.get_latest_record(recordId=record_id)
+        except ConnectionError as err:
+            error_console.print(f"ConnectionError: {err}")
+            raise typer.Exit(1)
 
     if r.ok:
         console.print(r.json())
@@ -331,7 +425,12 @@ def workflows(
         data_partition_id="osdu",
         token_refresher=cimpl_token_refresher,
     )
-    r = workflow_client.get_all_workflows_in_partition()
+
+    try:
+        r = workflow_client.get_all_workflows_in_partition()
+    except ConnectionError as err:
+        error_console.print(f"ConnectionError: {err}")
+        raise typer.Exit(1)
 
     if r.ok:
         console.print(r.json())
