@@ -6,6 +6,8 @@ variables:
   UV_PUBLISH_URL: "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/pypi"  
   UV_PUBLISH_USERNAME: "gitlab-ci-token"  
   UV_PUBLISH_PASSWORD: "${CI_JOB_TOKEN}"  
+  DOCKER_TLS_CERTDIR: ""
+  DOCKER_DRIVER: overlay2
 
 stages:
   - review
@@ -13,8 +15,8 @@ stages:
   - test
   - linters
   - scan
-  - deploy
   - publish
+  - deploy
 
 deploy-pages:
   stage: build
@@ -35,10 +37,24 @@ deploy-pages:
   artifacts:
     paths:
       - public
-  when: manual
+
+build-python-package:
+  stage: build
+  image: ghcr.io/astral-sh/uv:$UV_VERSION-python$PYTHON_VERSION-$BASE_LAYER
+  tags: ["osdu-small"]
+  script:
+    - apt update
+    - apt install git -y
+    - uv run $PACKAGE
+      # Set the version in pyproject.toml based on VERSION file, pipeline details and git tags
+    - VERSION=$(uv run setversion.py)  
+    - uvx --from=toml-cli toml set --toml-path=pyproject.toml project.version $VERSION
+    - uv build
+    - uv run --with $PACKAGE --no-project -- python -c "import $PACKAGE"
+  needs: []
 
 publish-python-package:
-  stage: build
+  stage: publish
   image: ghcr.io/astral-sh/uv:$UV_VERSION-python$PYTHON_VERSION-$BASE_LAYER
   tags: ["osdu-small"]
   script:
@@ -52,7 +68,40 @@ publish-python-package:
     - uv run --with $PACKAGE --no-project -- python -c "import $PACKAGE"
     - uv publish dist/*.whl
   needs: []
-  when: manual
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      when: manual
+      allow_failure: true
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+
+compile-and-unit-test:
+  stage: test
+  image: ghcr.io/astral-sh/uv:$UV_VERSION-python$PYTHON_VERSION-$BASE_LAYER
+  tags: ["osdu-small"]
+  script:
+    - uv run pytest -v --junit-xml=unit_tests_report.xml
+  coverage: '/^(?i)(TOTAL).*\s+(\d+\%)$/'
+  artifacts:
+    when: always
+    reports:
+      junit: unit_tests_report.xml
+
+    expire_in: 2 days
+  needs: []
+
+analyze-python-dependencies:
+  image: $CI_REGISTRY/osdu/platform/deployment-and-operations/release-scripts/tasklemon:v2.3
+  tags: ['osdu-small']
+  needs: ['compile-and-unit-test']
+  stage: scan
+
+  artifacts:
+    paths:
+      - python-dependencies.json
+
+  script:
+    - analyze-python.js
+    - format-dependencies.js
 
 prepare-release-notes:
   stage: build
@@ -87,3 +136,24 @@ publish-release-notes:
         - name: 'Container Image $CI_COMMIT_TAG'
           url: "https://$CI_REGISTRY_IMAGE/$CI_COMMIT_REF_SLUG:$CI_COMMIT_SHA"
   when: manual
+
+test-deployment-of-package:
+  stage: deploy
+  needs: ['publish-python-package']
+  image: docker:dind
+  allow_failure: true
+  script:
+    - export PATH=$PATH:$HOME/.local/bin
+    - apk add curl kubectl python3 helm pipx
+    - curl -LO https://github.com/kubernetes/minikube/releases/latest/download/minikube-linux-amd64
+    - install minikube-linux-amd64 /usr/local/bin/minikube && rm minikube-linux-amd64
+    - pipx install cibutler --index-url https://community.opengroup.org/api/v4/projects/1558/packages/pypi/simple --pip-args="--extra-index-url=https://community.opengroup.org/api/v4/projects/148/packages/pypi/simple"
+    #- curl -LsSf https://astral.sh/uv/install.sh | sh
+    #- export UV_LINK_MODE=copyexport 
+    - $PACKAGE --help
+    - $PACKAGE check --skip-docker-daemon
+    #- $PACKAGE config-minikube --max-cpu --max-memory
+
+include:
+  - project: "osdu/platform/ci-cd-pipelines"
+    file: "scanners/gitlab-ultimate.yml"

@@ -29,7 +29,7 @@ def suggested_cpu():
     return suggested_cpu_limit
 
 
-@cli.command(rich_help_panel="Troubleshoooting Commands")
+@cli.command(rich_help_panel="Troubleshooting Commands")
 def config_minikube(
     profile: str = None,
     max_cpu: bool = False,
@@ -119,10 +119,15 @@ def change_group(group_name):
 
 def minikube_start(
     profile: str = None,
+    force: bool = False,
     container_runtime: str = "docker",
     kubernetes_version: str = "stable",
     nodes: int = 1,
 ):
+    force_opt = ""
+    if force:
+        force_opt = "--force"
+
     # might need a change_group("docker") for linux
     if profile:
         console.print(
@@ -141,7 +146,7 @@ def minikube_start(
             f":fire: Starting minikube with {container_runtime} {kubernetes_version} kubernetes with {nodes} node(s)..."
         )
         call(
-            f"minikube start --container-runtime={container_runtime} --kubernetes-version={kubernetes_version} --nodes={nodes}",
+            f"minikube start --container-runtime={container_runtime} --kubernetes-version={kubernetes_version} --nodes={nodes} {force_opt}",
             shell=True,
         )
         call(

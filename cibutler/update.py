@@ -37,7 +37,7 @@ def update(
     # index_url = "https://community.opengroup.org/api/v4/projects/1351/packages/pypi/simple"
 
     text = f"""
-    Currently running: {__app_name__} [green]v{__version__}[/green] [cyan]{_version.__milestone__}[/cyan]
+    Currently running: {__app_name__} [green]v{__version__}[/green]
     BuildTime: {time.ctime(_version.__buildtime__)}
     Branch: {_version.__branch__}
     CommitID: {_version.__commitid__}
