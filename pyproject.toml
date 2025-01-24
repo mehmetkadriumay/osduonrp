@@ -20,6 +20,7 @@ classifiers = [
     "Programming Language :: Python :: 3.13",
 ]
 dependencies = [
+    "gitpython>=3.1.44",
     "inquirer>=3.4.0",
     "kubernetes>=31.0.0",
     "osdu-api[all]==0.28.0.dev904+ab6e3f55",

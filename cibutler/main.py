@@ -3,7 +3,6 @@
 import typer
 from typing_extensions import Annotated
 from typing import Optional
-import subprocess
 from rich.console import Console
 from rich.prompt import Prompt, Confirm
 import ruamel.yaml
@@ -12,6 +11,7 @@ import time
 from pathlib import Path
 import shutil
 import platform
+import importlib.metadata
 import cibutler.downloader as downloader
 import cibutler.utils as utils
 import cibutler.cik8s as cik8s
@@ -32,7 +32,7 @@ from cibutler.cimpl import (
 import cibutler.osdu as osdu
 import cibutler.cihelm as cihelm
 import cibutler.docs as docs
-import cibutler.conf as conf
+import cibutler.update as update
 
 # from kubernetes.client import configuration
 # from kubernetes.client.rest import ApiException
@@ -46,8 +46,12 @@ cli = typer.Typer(
     no_args_is_help=True,
 )
 
-__version__ = "0.1.2"
+try:
+    __version__ = importlib.metadata.version("mypackage")
+except Exception:
+    from cibutler._version import __version__
 
+cli.registered_commands += update.cli.registered_commands
 cli.registered_commands += cik8s.cli.registered_commands
 cli.registered_commands += cimpl.cli.registered_commands
 cli.registered_commands += ciminikube.cli.registered_commands
@@ -270,7 +274,7 @@ def install(
     ] = 120,
 ):
     """
-    Install CImpli via minikube, install notebook and data load.
+    Install CImpli via minikube, install notebook and data load. :rocket:
 
     data-load-flag options:
     'dd-reference', 'partial-dd-reference', 'tno-volve-reference', 'all', 'skip'
