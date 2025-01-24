@@ -1,5 +1,4 @@
 __version__ = "0.1.a3.docpipeline0"
-__milestone__ = "M-2"
 __branch__ = "doc_pipeline"
 __build__ = "0"
 __release__ = "a3.docpipeline0"

@@ -272,6 +272,9 @@ def install(
     disk_size: Annotated[
         int, typer.Option(help="Disk size allocated to the minikube VM in GB")
     ] = 120,
+    force: Annotated[
+        bool, typer.Option(help="Attempt to force install", hidden=True)
+    ] = False,
 ):
     """
     Install CImpli via minikube, install notebook and data load. :rocket:
@@ -288,7 +291,7 @@ def install(
         max_cpu=max_cpu,
         disk_size=disk_size,
     )
-    ciminikube.minikube_start()
+    ciminikube.minikube_start(force=force)
     if not check_istio() and not install_istio():
         error_console.print("Installation has failed")
         raise typer.Exit(1)
@@ -371,18 +374,21 @@ def cpu():
 
 
 @cli.command(rich_help_panel="CI Commands")
-def check(all: bool = False):
+def check(
+    all: Annotated[bool, typer.Option("--all", help="Additional checks")] = False,
+    skip_docker_daemon: Annotated[bool, typer.Option("--skip-docker-daemon", help="Skip testing docker daemon")] = False,
+):
     """
     Install Preflight Check
     """
     console.print(f"Platform: {platform.platform()}")
     utils.cpu_info()
-    preflight_checks()
+    preflight_checks(skip_docker_daemon=skip_docker_daemon)
     if all:
         post_checks()
 
 
-def preflight_checks():
+def preflight_checks(skip_docker_daemon=False):
     total_heap_required = 26
     MIN_CPU_CORES = 6
     with console.status("Checking Requirements..."):
@@ -399,6 +405,9 @@ def preflight_checks():
             else:
                 error_console.print(f"{cmd} installed :x:")
 
+        if skip_docker_daemon:
+            return
+
         # nprocs = utils.getconf_nprocs_online()
         nprocs = utils.cpu_count()
         if nprocs and nprocs >= MIN_CPU_CORES:
@@ -411,7 +420,7 @@ def preflight_checks():
             error_console.print(
                 "Error getting NCPU setting. Is the docker daemon running?"
             )
-            raise typer.Exit(1)
+            raise typer.Exit(2)
         elif ncpu >= MIN_CPU_CORES:
             console.print(f"Docker CPU Limit: {ncpu} :thumbs_up:")
         else:

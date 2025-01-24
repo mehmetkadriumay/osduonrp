@@ -52,7 +52,6 @@ def main(
 
     __version__ = f"{major}.{minor}.{release}"
     print(f"{__version__}")
-    milestone = int(minor) - 3
 
     if not commit_timestamp:
         today = datetime.now()
@@ -64,13 +63,12 @@ def main(
 
     with open(path + "/" + pyfile, "w") as f:
         f.write(f'__version__ = "{__version__}"\n')
-        f.write(f'__milestone__ = "M{milestone}"\n')
         f.write(f'__branch__ = "{branch}"\n')
         f.write(f'__build__ = "{build}"\n')
         f.write(f'__release__ = "{release}"\n')
         f.write(f"__buildtime__ = {time.time()}\n")
         f.write(f'__commitid__ = "{commit_id}"\n')
-        f.write(f'__commitmessage__ = """{commit_message}"""\n')
+        f.write(f'__commitmessage__ = """{commit_message.strip()}"""\n')
         f.write(f'__committimestamp__ = "{commit_timestamp}"\n')
         f.write(f'__commitrefslug__ = "{commit_ref_slug}"\n')
 
