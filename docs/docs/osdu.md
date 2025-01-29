@@ -64,11 +64,11 @@ To add a member email to a group aka Create Group Member
 cibutler group-add user@example.com -g users@osdu.group
 ```
 
-## Add a member to Groups in Batch
+## Add a member(s) to Groups in Batch
 
 This command is for adding a number of groups to a user.
 
-The groups.json file must be in the format:
+The groups.json file or input must be in the format:
 ```
 {
   "groups": [
@@ -89,6 +89,16 @@ To obtain a list of groups in this format see [groups command](osdu.md#get-group
 
 ```
 cibutler groups-add -f groups.json user@example.com
+```
+
+Alternatively groups-add can read from stdin
+```
+cibutler groups --json | cibutler groups-add -f - user@example.com
+```
+
+You can also provide a list of users
+```
+cibutler groups-add -f groups.json user1@example.com user2@example.com user3@example.com ...
 ```
 
 If user is already part of group you will get a warning and then continue on.

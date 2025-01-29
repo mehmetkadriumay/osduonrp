@@ -7,6 +7,7 @@ from keycloak import KeycloakOpenIDConnection
 import keycloak.exceptions
 import requests
 import pyperclip
+import sys
 import json
 from pathlib import Path
 from typing import Optional
@@ -310,7 +311,7 @@ def list_users(
         console.print(users)
 
 
-@cli.command(rich_help_panel="Keycloak Related Commands", hidden=True)
+@cli.command(rich_help_panel="Keycloak Related Commands")
 def get_user_id(
     username: Annotated[str, typer.Argument(help="Username")],
     admin_user: Annotated[
@@ -337,7 +338,7 @@ def get_user_id(
     ] = "master",
 ):
     """
-    Get internal keycloak user-id for a user
+    Get keycloak internal id for a username
     """
     if not admin_password:
         admin_password = cimpl.get_keycloak_admin_password()
@@ -363,7 +364,7 @@ def get_user_id(
     console.print(detail)
 
 
-@cli.command(rich_help_panel="Keycloak Related Commands", hidden=True)
+@cli.command(rich_help_panel="Keycloak Related Commands")
 def get_client_id(
     client_id: Annotated[str, typer.Argument(help="Client ID")],
     admin_user: Annotated[
@@ -390,7 +391,7 @@ def get_client_id(
     ] = "master",
 ):
     """
-    Get internal keycloak user-id for a user
+    Get a keycloak internal id for a given client-id
     """
     if not admin_password:
         admin_password = cimpl.get_keycloak_admin_password()
@@ -529,60 +530,66 @@ def add_users(
         Those values will be used in creation of the accounts.
         Other values of the json will be ignored.
 
-        save users:
+        Save users:
         cibutler list-users --json > users.json
 
-        load users:
+        Load users:
         cibutler add-users --file users.json
+
+        Load users from stdin:
+        some-command | cibutler add-users --file -
     """
     if file is None:
         error_console.print("No file")
         raise typer.Abort()
-    if file.is_file():
+    elif str(file) == "-":
+        file_data = sys.stdin.read().strip()
+    elif file.is_file():
         file_data = file.read_text()
-        # console.print(f"file contents: {type(text)}")
-        try:
-            data = json.loads(file_data)
-        except json.decoder.JSONDecodeError as err:
-            error_console.print(f"JSON validation error: {err}")
-            raise typer.Exit(2)
-
-        if not admin_password:
-            admin_password = cimpl.get_keycloak_admin_password()
-
-        for user in data:
-            if "enabled" in user:
-                enabled = user["enabled"]
-            if "emailVerified" in user:
-                email_verified = user["emailVerified"]
-
-            try:
-                new_user = add_user_to_keycloak(
-                    base_url=base_url,
-                    admin_user=admin_user,
-                    admin_password=admin_password,
-                    realm=realm,
-                    user_realm=user_realm,
-                    email=user["email"],
-                    username=user["username"],
-                    enabled=enabled,
-                    first=user["firstName"],
-                    last=user["lastName"],
-                    email_verified=email_verified,
-                    exists_ok=exists_ok,
-                )
-            except KeyError as err:
-                error_console.print(f"Key error {err}")
-                raise typer.Exit(2)
-
-            console.print(f"User {user['username']} added with id {new_user}")
-
     elif file.is_dir():
         error_console.print("path is a directory, not yet supported")
         raise typer.Abort()
     elif not file.exists():
         error_console.print("The file doesn't exist")
         raise typer.Abort()
+
+    try:
+        data = json.loads(file_data)
+    except json.decoder.JSONDecodeError as err:
+        error_console.print(f"JSON validation error: {err}")
+        raise typer.Exit(2)
+
+    if not admin_password:
+        admin_password = cimpl.get_keycloak_admin_password()
+
+    for user in data:
+        if "enabled" in user:
+            enabled = user["enabled"]
+        if "emailVerified" in user:
+            email_verified = user["emailVerified"]
+
+        try:
+            new_user = add_user_to_keycloak(
+                base_url=base_url,
+                admin_user=admin_user,
+                admin_password=admin_password,
+                realm=realm,
+                user_realm=user_realm,
+                email=user["email"],
+                username=user["username"],
+                enabled=enabled,
+                first=user["firstName"],
+                last=user["lastName"],
+                email_verified=email_verified,
+                exists_ok=exists_ok,
+            )
+        except KeyError as err:
+            error_console.print(f"Key error {err}")
+            raise typer.Exit(2)
+
+        console.print(f"User {user['username']} added with id {new_user}")
+
+
 
 
 @cli.command(rich_help_panel="Keycloak Related Commands")

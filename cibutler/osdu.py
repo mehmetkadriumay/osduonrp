@@ -1,10 +1,11 @@
 import os
 import requests
+import sys
 from requests.exceptions import ConnectionError, HTTPError
 import typer
 from rich.console import Console
 from rich.table import Table
-from typing import Optional
+from typing import Optional, List
 import tenacity
 import json
 from pathlib import Path
@@ -367,7 +368,7 @@ def del_user_in_group(
 
 @cli.command(rich_help_panel="OSDU Related Commands")
 def groups_add(
-    email: str,
+    email_list: List[str],
     file: Annotated[Optional[Path], typer.Option("--file", "-f")] = None,
     role: str = "MEMBER",
     base_url: Annotated[
@@ -377,54 +378,65 @@ def groups_add(
         str, typer.Option(envvar="KEYCLOAK_REALM", help="Data Partition/Keycloak Realm")
     ] = "osdu",
     client_id: Annotated[str, typer.Option(help="ClientID")] = "osdu-admin",
+    dry_run: Annotated[bool, typer.Option("--dry-run", help="Preview action")] = False,
 ):
     """
-    Utility for adding user to multiple groups
+    Utility for adding user(s) to multiple groups
 
     Example JSON:
 
-    save groups:
+    Save groups of a user:
     cibutler groups --json > groups.json
 
-    load groups:
-    cibutler groups-add --file groups.json
+    Load groups:
+    cibutler groups-add --file groups.json user@example.com ...
+
+    Groups can also be loaded from stdin:
+    some-command | cibutler groups-add --file - user@example.com ...
+
+    Or all together:
+    cibutler groups --json | cibutler groups-add --file - user@example.com ...
     """
 
     if file is None:
         error_console.print("No file")
         raise typer.Abort()
-
-    if file.is_file():
+    elif str(file) == "-":
+        file_data = sys.stdin.read().strip()
+    elif file.is_file():
         file_data = file.read_text()
-        # console.print(f"file contents: {type(text)}")
-        try:
-            data = json.loads(file_data)
-        except json.decoder.JSONDecodeError as err:
-            error_console.print(f"JSON validation error: {err}")
-            raise typer.Exit(2)
-
-        if "groups" not in data:
-            error_console.print("JSON doesn't have groups definition")
-            raise typer.Exit(2)
-
-        for group in data["groups"]:
-            group_email = group["email"]
-            with console.status(f"Adding user to {group_email}..."):
-                add_user_to_group(
-                    email=email,
-                    group_email=group_email,
-                    role=role,
-                    base_url=base_url,
-                    realm=realm,
-                    client_id=client_id,
-                )
-
     elif file.is_dir():
         error_console.print("path is a directory, not yet supported")
         raise typer.Abort()
     elif not file.exists():
         error_console.print("The file doesn't exist")
         raise typer.Abort()
+
+    try:
+        data = json.loads(file_data)
+    except json.decoder.JSONDecodeError as err:
+        error_console.print(f"JSON validation error: {err}")
+        raise typer.Exit(2)
+
+    if "groups" not in data:
+        error_console.print("JSON doesn't have groups definition")
+        raise typer.Exit(2)
+
+    for email in email_list:
+        for group in data["groups"]:
+            group_email = group["email"]
+            with console.status(f"Adding user to {group_email}..."):
+                if dry_run:
+                    console.print(f"Would {email} add {group_email}")
+                else:
+                    add_user_to_group(
+                        email=email,
+                        group_email=group_email,
+                        role=role,
+                        base_url=base_url,
+                        realm=realm,
+                        client_id=client_id,
+                    )
 
 
 @cli.command(rich_help_panel="OSDU Related Commands")
