@@ -10,6 +10,7 @@ import pyperclip
 import json
 from pathlib import Path
 from typing import Optional
+from getpass import getpass
 import cibutler.cimpl as cimpl
 
 console = Console()
@@ -25,6 +26,10 @@ KEYCLOAK_URL = "http://keycloak.localhost/"
 @cli.command(rich_help_panel="Keycloak Related Commands")
 def token(
     clip: Annotated[bool, typer.Option(help="Copy Access token to clipboard")] = False,
+    username: Annotated[str, typer.Option(help="Get token for username")] = None,
+    password: Annotated[
+        str, typer.Option(envvar="USER_PASSWORD", help="Password for user")
+    ] = None,
     realm: Annotated[
         str,
         typer.Option(envvar="KEYCLOAK_REALM", help="Keycloak Realm/Data Partition ID"),
@@ -52,6 +57,16 @@ def token(
         "client_secret": client_secret,
         "scope": "email openid profile",
     }
+
+    if username:
+        if not password:
+            password = getpass(f"Password for user {username}")
+            # needs view-users from the realm-management group
+
+        data["username"] = username
+        data["password"] = password
+        data["grant_type"] = "password"
+
     try:
         r = requests.post(
             url=f"{base_url}/realms/{realm}/protocol/openid-connect/token",
@@ -65,13 +80,13 @@ def token(
         if detail:
             console.print(r.json())
         else:
-            console.print(r.json()["access_token"])
+            print(r.json()["access_token"])
 
         if clip:
             pyperclip.copy(r.json()["access_token"])
 
     else:
-        console.print(f"error {r.status_code}")
+        console.print(f"error {r.status_code} {r.text}")
 
 
 @cli.command(rich_help_panel="Keycloak Related Commands")
@@ -566,7 +581,8 @@ def add_users(
         error_console.print("path is a directory, not yet supported")
         raise typer.Abort()
     elif not file.exists():
-        print("The file doesn't exist")
+        error_console.print("The file doesn't exist")
+        raise typer.Abort()
 
 
 @cli.command(rich_help_panel="Keycloak Related Commands")

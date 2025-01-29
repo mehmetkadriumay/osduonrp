@@ -1,10 +1,10 @@
 import os
 import requests
-from requests.exceptions import ConnectionError
+from requests.exceptions import ConnectionError, HTTPError
 import typer
 from rich.console import Console
 from rich.table import Table
-import rich.progress
+from typing import Optional
 import tenacity
 import json
 from pathlib import Path
@@ -140,9 +140,26 @@ def groups(
         str, typer.Option(envvar="KEYCLOAK_REALM", help="Keycloak Realm")
     ] = "osdu",
     client_id: Annotated[str, typer.Option(help="ClientID")] = "osdu-admin",
+    user_id: Annotated[
+        str, typer.Option(help="User ID for user with ENTITLEMENTS_IMPERSONATION")
+    ] = None,
+    token: Annotated[bool, typer.Option(help="Use provided Access Token")] = False,
+    access_token: Annotated[
+        str, typer.Option(envvar="TOKEN", help="Bearer Token")
+    ] = None,
 ):
     """
     Groups for current user
+
+
+    To get groups of another user
+
+    Get an access token for that user
+    export TOKEN=`cibutler token --username xyz`
+
+    citbutler groups --token
+
+    User must be a member of service.entitlements.user to use this command (i.e. use entitlements service)
     """
     with console.status("Connecting..."):
         base_url = base_url.rstrip("/")
@@ -155,9 +172,23 @@ def groups(
             provider=CLOUD_PROVIDER,
             data_partition_id="osdu",
             token_refresher=cimpl_token_refresher,
+            user_id=user_id,
         )
 
-    r = entitlement_client.get_groups_for_user()
+    try:
+        if token and access_token:
+            r = entitlement_client.get_groups_for_user(
+                bearer_token=access_token.strip()
+            )
+        else:
+            r = entitlement_client.get_groups_for_user()
+    except ConnectionError as err:
+        error_console.print(f"ConnectionError: {err}")
+        raise typer.Exit(1)
+    except HTTPError as err:
+        error_console.print(f"HTTPError: {err}")
+        raise typer.Exit(1)
+
     if r.ok:
         if output_json:
             console.print_json(json.dumps(r.json()))
@@ -220,7 +251,9 @@ def group_members(
 @cli.command(rich_help_panel="OSDU Related Commands")
 def group_add(
     email: str,
-    group_email: str = "users@osdu.group",
+    group_email: Annotated[
+        str, typer.Option("--group-email", "-g", help="Group Email")
+    ] = "users@osdu.group",
     role: str = "MEMBER",
     base_url: Annotated[
         str, typer.Option(envvar="BASE_URL", help="BASE URL for OSDU")
@@ -231,7 +264,49 @@ def group_add(
     client_id: Annotated[str, typer.Option(help="ClientID")] = "osdu-admin",
 ):
     """
-    Add member email to group
+    Add member email to group (create group member)
+    """
+    add_user_to_group(
+        email=email,
+        group_email=group_email,
+        role=role,
+        base_url=base_url,
+        realm=realm,
+        client_id=client_id,
+    )
+
+
+@cli.command(rich_help_panel="OSDU Related Commands")
+def group_del(
+    member_email: str,
+    group_email: Annotated[
+        str, typer.Option("--group-email", "-g", help="Group Email")
+    ] = "users@osdu.group",
+    base_url: Annotated[
+        str, typer.Option(envvar="BASE_URL", help="BASE URL for OSDU")
+    ] = BASE_URL,
+    realm: Annotated[
+        str, typer.Option(envvar="KEYCLOAK_REALM", help="Keycloak Realm")
+    ] = "osdu",
+    client_id: Annotated[str, typer.Option(help="ClientID")] = "osdu-admin",
+):
+    """
+    Delete member email from group (delete group member)
+    """
+    del_user_in_group(
+        member_email=member_email,
+        group_email=group_email,
+        base_url=base_url,
+        realm=realm,
+        client_id=client_id,
+    )
+
+
+def add_user_to_group(
+    email: str, group_email: str, role: str, base_url: str, realm: str, client_id: str
+):
+    """
+    add user to group
     """
     base_url = base_url.rstrip("/")
     cimpl_token_refresher = setup(base_url=base_url, realm=realm, client_id=client_id)
@@ -254,7 +329,102 @@ def group_add(
     if r.ok:
         console.print(r.json())
     else:
-        error_console.print(f"Error {r.status_code}")
+        if r.status_code == 409:
+            error_console.print(f"Already exists {r.status_code}")
+        else:
+            error_console.print(f"Error {r.status_code}")
+
+
+def del_user_in_group(
+    member_email: str, group_email: str, base_url: str, realm: str, client_id: str
+):
+    """
+    delete user in group
+    """
+    base_url = base_url.rstrip("/")
+    cimpl_token_refresher = setup(base_url=base_url, realm=realm, client_id=client_id)
+    entitlement_client = EntitlementsClient(
+        entitlements_url=base_url + "/api/entitlements/v2",
+        provider=CLOUD_PROVIDER,
+        data_partition_id="osdu",
+        token_refresher=cimpl_token_refresher,
+    )
+
+    try:
+        r = entitlement_client.delete_group_member(
+            group_email=group_email,
+            member_email=member_email,
+        )
+    except ConnectionError as err:
+        error_console.print(f"ConnectionError: {err}")
+        raise typer.Exit(1)
+
+    if r.ok:
+        console.print(r.json())
+    else:
+        error_console.print(f"Error {r.status_code} {r.text}")
+
+
+@cli.command(rich_help_panel="OSDU Related Commands")
+def groups_add(
+    email: str,
+    file: Annotated[Optional[Path], typer.Option("--file", "-f")] = None,
+    role: str = "MEMBER",
+    base_url: Annotated[
+        str, typer.Option(envvar="BASE_URL", help="BASE URL for OSDU")
+    ] = BASE_URL,
+    realm: Annotated[
+        str, typer.Option(envvar="KEYCLOAK_REALM", help="Data Partition/Keycloak Realm")
+    ] = "osdu",
+    client_id: Annotated[str, typer.Option(help="ClientID")] = "osdu-admin",
+):
+    """
+    Utility for adding user to multiple groups
+
+    Example JSON:
+
+    save groups:
+    cibutler groups --json > groups.json
+
+    load groups:
+    cibutler groups-add --file groups.json
+    """
+
+    if file is None:
+        error_console.print("No file")
+        raise typer.Abort()
+
+    if file.is_file():
+        file_data = file.read_text()
+        # console.print(f"file contents: {type(text)}")
+        try:
+            data = json.loads(file_data)
+        except json.decoder.JSONDecodeError as err:
+            error_console.print(f"JSON validation error: {err}")
+            raise typer.Exit(2)
+
+        if "groups" not in data:
+            error_console.print("JSON doesn't have groups definition")
+            raise typer.Exit(2)
+
+        for group in data["groups"]:
+            group_email = group["email"]
+            with console.status(f"Adding user to {group_email}..."):
+                add_user_to_group(
+                    email=email,
+                    group_email=group_email,
+                    role=role,
+                    base_url=base_url,
+                    realm=realm,
+                    client_id=client_id,
+                )
+
+    elif file.is_dir():
+        error_console.print("path is a directory, not yet supported")
+        raise typer.Abort()
+    elif not file.exists():
+        error_console.print("The file doesn't exist")
+        raise typer.Abort()
 
 
 @cli.command(rich_help_panel="OSDU Related Commands")
@@ -461,9 +631,14 @@ def status(
     base_url: Annotated[
         str, typer.Option(envvar="BASE_URL", help="BASE URL for OSDU")
     ] = BASE_URL,
+    threshold: Annotated[int, typer.Option(help="Threshold for exit status")] = 1,
 ):
     """
     Get simple health status of OSDU services
+
+    The threshold is for providing an exit status
+    if the number of services down/giving an error is greater or equal to that number
+    than a non-zero exit status will be given
     """
     base_url = base_url.rstrip("/")
     errors = 0
@@ -475,8 +650,7 @@ def status(
             console.print(f":x: {endpt.title()}")
             errors += 1
 
-    if errors > 4:
-        # If more than 4 services down set exit status
+    if errors >= threshold:
         raise typer.Exit(1)
 
 
