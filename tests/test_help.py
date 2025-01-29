@@ -89,6 +89,8 @@ def test_keycloak_commands_help(test_input):
         ("groups"),
         ("group-members"),
         ("group-add"),
+        ("groups-add"),
+        ("group-del"),
         ("search"),
         ("record"),
         ("status"),

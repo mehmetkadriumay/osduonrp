@@ -376,7 +376,9 @@ def cpu():
 @cli.command(rich_help_panel="CI Commands")
 def check(
     all: Annotated[bool, typer.Option("--all", help="Additional checks")] = False,
-    skip_docker_daemon: Annotated[bool, typer.Option("--skip-docker-daemon", help="Skip testing docker daemon")] = False,
+    skip_docker_daemon: Annotated[
+        bool, typer.Option("--skip-docker-daemon", help="Skip testing docker daemon")
+    ] = False,
 ):
     """
     Install Preflight Check
