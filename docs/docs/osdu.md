@@ -6,8 +6,8 @@ This can be especially useful to when you need to redeploy your OSDU environment
 
 Only some of the capabilities are outlined here.
 
-!!! info "Additional Documentation is Available"
-    **CI Butler has built-in help**:
+!!! question "Additional Documentation is Available"
+    **CI Butler has great built-in help**:
 
      - `cibutler --help` for overall help
      - `cibutler command --help` for help on a individual command
