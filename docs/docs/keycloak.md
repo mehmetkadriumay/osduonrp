@@ -59,6 +59,11 @@ cibutler list-users --json > users.json
 cibutler add-users --file users.json
 ```
 
+add-users can also read from stdin:
+```
+cibutler list-users --json | cibutler add-users --file -
+```
+
 If you're not using an export (`list-users --json`).
 Here is an example users.json:
 
