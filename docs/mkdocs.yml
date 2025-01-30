@@ -46,11 +46,10 @@ markdown_extensions:
         - name: mermaid
           class: mermaid
           format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.tasklist:
+      custom_checkbox: true
 
 plugins:
   - search
   - git-revision-date
   - termynal
-
-#extra_javascript:
-  #- https://unpkg.com/mermaid@8.4.6/dist/mermaid.min.js

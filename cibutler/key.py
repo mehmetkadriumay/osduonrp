@@ -590,8 +590,6 @@ def add_users(
         console.print(f"User {user['username']} added with id {new_user}")
 
 
-
-
 @cli.command(rich_help_panel="Keycloak Related Commands")
 def add_user(
     email: Annotated[str, typer.Argument(help="Email address")],
