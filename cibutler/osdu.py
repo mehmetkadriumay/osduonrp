@@ -119,7 +119,9 @@ def legal_tags(
     --legal-tag allows lookup of a single legal tag
     """
     base_url = base_url.rstrip("/")
-    access_token = access_token.strip()
+    if access_token:
+        access_token = access_token.strip()
+
     cimpl_token_refresher = setup(base_url=base_url, realm=realm, client_id=client_id)
     legal_url = base_url + conf.osdu_end_points["legal"]["api"]
 
