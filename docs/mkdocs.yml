@@ -41,12 +41,16 @@ markdown_extensions:
       pygments_lang_class: true
   - pymdownx.inlinehilite
   - pymdownx.snippets
-  - pymdownx.superfences
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
 
 plugins:
   - search
   - git-revision-date
   - termynal
 
-extra_javascript:
-  - https://unpkg.com/mermaid@8.4.6/dist/mermaid.min.js
+#extra_javascript:
+  #- https://unpkg.com/mermaid@8.4.6/dist/mermaid.min.js
