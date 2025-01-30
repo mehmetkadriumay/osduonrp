@@ -16,7 +16,7 @@ CI Butler also is built with [OSDU Python SDK](https://community.opengroup.org/o
     CI Butler is in development and should be considered experimental. Please report any issues.
 
 !!! example "CI Butler is Not Yet Using Official Community Implementation Helm Charts and Images Yet"
-    CI Butler is by default temporarily using the M24 helm charts and container images provided by Google (thank you google) as demonstrated during the face to face meeting in Houston 2024 until the official CI helm charts and container images are available.
+    CI Butler is by default temporarily using the M24 helm charts and container images built by Google (thank you google) as demonstrated during the face to face meeting in Houston 2024 until the official CI helm charts and container images are available.
     
     These versions and paths can however be overridden on the command-line.
     When stable Community provided images are available, CI Butler will be updated to use these by default.
