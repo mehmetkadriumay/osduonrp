@@ -109,6 +109,8 @@ If you want to have a fully automated install without data loading:
 cibutler install --data-load-flag=skip --quiet
 ```
 
+For more details on what happens in the CImpl install process see [install process](install_process.md).
+
 ## Confirm things are working
 
 ### Tunnel

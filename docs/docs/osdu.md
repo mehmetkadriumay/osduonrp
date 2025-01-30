@@ -1,10 +1,10 @@
-# OSDU Support
+# OSDU Related Commands
 
 CI Butler also has built-in support for various OSDU functionality, in particular for automation and testing needs.
 
 This can be especially useful to when you need to redeploy your OSDU environment or test as part of a pipeline.
 
-Only some of the capabilities are outlined here.
+Only some of the capabilities are outlined here. There are more commands and options.
 
 !!! question "Additional Documentation is Available"
     **CI Butler has great built-in help**:

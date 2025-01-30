@@ -4,11 +4,11 @@
 
 - **Lead:** Shane Hutchins, [Hitachi DS]
 - **Status:** Experimental
-- **Homepage:** [https://osdu.pages.opengroup.org/ui/cibutler/project/](https://osdu.pages.opengroup.org/ui/cibutler/)
+- **Homepage:** [https://osdu.pages.opengroup.org/ui/cibutler/](https://osdu.pages.opengroup.org/ui/cibutler/)
 - **Charter:** N/A
 - **Documentation:** [Doc](https://osdu.pages.opengroup.org/ui/cibutler/)
 - **Backlog:** 
-- **Slack Channel:** N/A
+- **Slack Channel:** pmc-community-infrastructure
 - **Meeting Schedule:** N/A
 
 ## Background
@@ -17,30 +17,33 @@ Build automation for installing and configuring CImpl.
 
 ### Objectives
 
-#### Short Term
+### Planned Deliverables
 
-- Install OSDU locally
-- Allow getting credentials easily from installation
-- Deploy notebook to get users started
-- Provide options for adding users, client ids, etc
+- [x] Installable/packaged utility
+- [x] Add scanning to pipeline
+- [x] Pages documentation
+- [x] Install OSDU
+- [x] Automation to add clients
+- [x] Automation to add users
+- [x] Automation to add users to groups
+- [ ] Install Official CImpl helm charts and images
+- [ ] Allow different size deployments - support smaller deployments (less services and smaller memory requests)
 
-#### Long Term
+#### Long Term Plan
 
 - Install individual CImpl service packages/charts
 - Allow configuration of each service - tshirt sizing for services (think replicas, memory and cpu requests)
 - Provide more automation for pipeline usage
-- automated testing
-
-### Deliverables
-
-- installable utility
-- pages documentation
+- Automated testing
+- Support more than just minikube
 
 ## Status
 
-This utility is experimental
+!!! warning "Experimental"
 
-**Last updated:** {{ git_revision_date }}
+    CI Butler is in development and should be considered experimental. Please report any issues.
+
+    **Last updated:** {{ git_revision_date }}
 
 ## Support needed
 

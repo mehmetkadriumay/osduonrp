@@ -1,9 +1,9 @@
-# Keycloak Support
+# Keycloak Related Commands
 
 CI Butler also have built-in support for managing users and client ids in keycloak and adding users to groups OSDU.
 This can be especially useful to when you need to redeploy your OSDU environment or test as part of a pipeline.
 
-Only some of the capabilities are outlined here.
+Only some of the capabilities are outlined here. There are more commands and options.
 
 !!! question "Additional Documentation is Available"
     **CI Butler has great built-in help**:
