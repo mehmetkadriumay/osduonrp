@@ -13,6 +13,7 @@ from pathlib import Path
 from typing import Optional
 from getpass import getpass
 import cibutler.cimpl as cimpl
+import cibutler.utils as utils
 
 console = Console()
 error_console = Console(stderr=True, style="bold red")
@@ -92,7 +93,9 @@ def token(
 
 @cli.command(rich_help_panel="Keycloak Related Commands")
 def list_clients(
-    output_json: Annotated[bool, typer.Option("--json", help="Output as JSON")] = False,
+    output: Annotated[
+        utils.OutputType, typer.Option("--output", "-o", help="Output style")
+    ] = None,
     admin_user: Annotated[
         str,
         typer.Option(
@@ -143,7 +146,7 @@ def list_clients(
         error_console.print(f"Connection Error: {err}")
         raise typer.Exit(1)
 
-    if output_json:
+    if output == utils.OutputType.json:
         console.print_json(json.dumps(clients))
     else:
         console.print(clients)
@@ -248,7 +251,9 @@ def add_client(
 
 @cli.command(rich_help_panel="Keycloak Related Commands")
 def list_users(
-    output_json: Annotated[bool, typer.Option("--json", help="Output as JSON")] = False,
+    output: Annotated[
+        utils.OutputType, typer.Option("--output", "-o", help="Output style")
+    ] = None,
     usernames: Annotated[
         bool, typer.Option("--usernames", help="Show usernames only")
     ] = False,
@@ -302,7 +307,7 @@ def list_users(
         error_console.print(f"Connection Error: {err}")
         raise typer.Exit(1)
 
-    if output_json:
+    if output == utils.OutputType.json:
         console.print_json(json.dumps(users))
     elif usernames:
         for user in users:
@@ -531,7 +536,7 @@ def add_users(
         Other values of the json will be ignored.
 
         Save users:
-        cibutler list-users --json > users.json
+        cibutler list-users -o json > users.json
 
         Load users:
         cibutler add-users --file users.json

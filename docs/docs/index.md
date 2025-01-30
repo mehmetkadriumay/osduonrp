@@ -9,7 +9,7 @@ The CIButler is supported on Mac, Windows and Linux.  It is known to work best o
 CIButler was inspired by the great work by the Google Team (namely [install-cimpl.sh](https://gitlab.opengroup.org/osdu/pmc/community-implementation/-/blob/main/install-cimpl.sh),
 [simple_osdu_docker_desktop](https://community.opengroup.org/osdu/platform/deployment-and-operations/infra-gcp-provisioning/-/tree/master/examples/simple_osdu_docker_desktop))
 and incorporating features & learnings from [AdminCLI](https://osdu.pages.opengroup.org/ui/admincli/). 
-CI Butler is also built with [OSDU Python SDK](https://community.opengroup.org/osdu/platform/system/sdks/common-python-sdk). 
+CI Butler is also built with [OSDU Python SDK osdu-api](https://community.opengroup.org/osdu/platform/system/sdks/common-python-sdk). 
 
 !!! warning "Experimental"
 

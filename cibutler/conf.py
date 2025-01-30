@@ -1,4 +1,9 @@
 osdu_end_points = {
+    "config": {
+        "api": "/api/config/v1",
+        "repo": "https://osdu.pages.opengroup.org/platform/security-and-compliance/entitlements/",
+        "doc": "https://osdu.pages.opengroup.org/platform/security-and-compliance/entitlements/",
+    },
     "entitlements": {
         "api": "/api/entitlements/v2",
         "repo": "https://osdu.pages.opengroup.org/platform/security-and-compliance/entitlements/",
@@ -56,21 +61,21 @@ osdu_end_points = {
         "repo": "https://community.opengroup.org/osdu/platform/system/dataset",
         "doc": "https://osdu.pages.opengroup.org/platform/system/dataset/",
     },
-    # "workflow": {
-    #    "api": "/api/workflow/v1",
-    #    "repo": "https://community.opengroup.org/osdu/platform/data-flow/ingestion/ingestion-workflow",
-    #    "doc": "https://community.opengroup.org/osdu/platform/data-flow/ingestion/ingestion-workflow/-/blob/master/README.md",
-    # },
+    "workflow": {
+        "api": "/api/workflow/v1",
+        "repo": "https://community.opengroup.org/osdu/platform/data-flow/ingestion/ingestion-workflow",
+        "doc": "https://community.opengroup.org/osdu/platform/data-flow/ingestion/ingestion-workflow/-/blob/master/README.md",
+    },
     # "crs converter": {
     #    "api": "/api/crs/converter/v3",
     #    "repo": "https://community.opengroup.org/osdu/platform/system/reference/crs-conversion-service",
     #    "doc": "https://community.opengroup.org/osdu/platform/system/reference/crs-conversion-service/-/tree/master/docs",
     # },
-    # "unit v3": {
-    #    "api": "/api/unit/v3",
-    #    "repo": "https://community.opengroup.org/osdu/platform/system/reference/unit-service/-/tree/master",
-    #    "doc": "https://community.opengroup.org/osdu/platform/system/reference/unit-service/-/tree/master/docs/v3",
-    # },
+    "unit v3": {
+        "api": "/api/unit/v3",
+        "repo": "https://community.opengroup.org/osdu/platform/system/reference/unit-service/-/tree/master",
+        "doc": "https://community.opengroup.org/osdu/platform/system/reference/unit-service/-/tree/master/docs/v3",
+    },
     "indexer": {
         "api": "/api/indexer/v2",
         "repo": "https://community.opengroup.org/osdu/platform/system/indexer-service",

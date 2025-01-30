@@ -17,6 +17,11 @@ Only some of the capabilities are outlined here. There are more commands and opt
     - See [Command Reference](./commands_reference.md).
 
 
+!!! tip "Output Formats"
+
+    Some commands support different output formats.
+    These may include human, json, csv and excel formats.
+
 ## Get Legal Tags
 
 Get all legal tags:
@@ -29,7 +34,7 @@ Get a single legal tag
 cibutler legal-tags --legal-tag osdu-default-data-tag
 ```
 
-To get output in json format add `--json`
+To get output in json format add `-o json`
 
 ## Get Groups
 
@@ -43,9 +48,9 @@ cibutler groups --token
 ```
 To get access token of another user [Keycloak token](./keycloak.md#get-an-access-token-for-another-user)
 
-To get output in json format add `--json`, for example:
+To get output in json format add `-o json`, for example:
 ```
-cibutler groups --json > groups.json
+cibutler groups -o json > groups.json
 ```
 
 ## Get Group Members
@@ -54,7 +59,7 @@ To get members of a group, provide the group email
 ```
 cibutler group-members -g users@osdu.group
 ```
-To get output in json format add `--json`
+To get output in json format add `-o json`
 
 ## Add a member to Group
 
@@ -93,7 +98,7 @@ cibutler groups-add -f groups.json user@example.com
 
 Alternatively groups-add can read from stdin
 ```
-cibutler groups --json | cibutler groups-add -f - user@example.com
+cibutler groups -o json | cibutler groups-add -f - user@example.com
 ```
 
 You can also provide a list of users
@@ -117,18 +122,29 @@ Basis search to check for data
 
 Basic search in human printed format
 ```
-cibutler search -h
+cibutler search -o human
 ```
 
 Output in json:
 ```
-cibutler search --json
+cibutler search -o json
+```
+
+Output in csv:
+```
+cibutler search -o csv
+```
+
+Output in excel:
+```
+cibutler search -o excel
 ```
 
 You can of course provide expected options:
 - `--kind` default is `*.*.*.*`
 - `--query`
 - `--limit` default is 10
+- `--offset` default is 0
 
 ## Record
 
