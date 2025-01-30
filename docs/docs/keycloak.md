@@ -50,7 +50,7 @@ cibutler list-users
 ### Get users and output as json:
 
 ```
-cibutler list-users --json > users.json
+cibutler list-users -o json > users.json
 ```
 
 ### Import users:
@@ -61,10 +61,10 @@ cibutler add-users --file users.json
 
 add-users can also read from stdin:
 ```
-cibutler list-users --json | cibutler add-users --file -
+cibutler list-users -o json | cibutler add-users --file -
 ```
 
-If you're not using an export (`list-users --json`).
+If you're not using an export (`list-users -o json`).
 Here is an example users.json:
 
 ```
@@ -101,4 +101,3 @@ By default clients are created with No Standard flow, No Implict Flow and No Pub
 ```
 cibutler add-client --name client_name
 ```
-

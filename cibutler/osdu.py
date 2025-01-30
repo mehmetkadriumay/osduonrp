@@ -23,6 +23,8 @@ from osdu_api.model.entitlements.group_member import GroupMember
 from osdu_api.model.search.query_request import QueryRequest
 import cibutler.cimpl as cimpl
 import cibutler.conf as conf
+import cibutler.save as save
+import cibutler.utils as utils
 
 """
 This limit OSDU functionality is to help verify OSDU is install and working correctly.
@@ -89,15 +91,27 @@ def refresh_token(
 
 @cli.command(rich_help_panel="OSDU Related Commands")
 def legal_tags(
-    output_json: Annotated[bool, typer.Option("--json", help="Output as JSON")] = False,
+    output: Annotated[
+        utils.OutputType, typer.Option("--output", "-o", help="Output style")
+    ] = None,
     legal_tag: Annotated[str, typer.Option(help="Legal Tag")] = None,
     base_url: Annotated[
         str, typer.Option(envvar="BASE_URL", help="BASE URL for OSDU")
     ] = BASE_URL,
     realm: Annotated[
-        str, typer.Option(envvar="KEYCLOAK_REALM", help="Keycloak Realm")
+        str,
+        typer.Option(
+            envvar="KEYCLOAK_REALM", help="Keycloak Realm/OSDU Data Partition ID"
+        ),
     ] = "osdu",
     client_id: Annotated[str, typer.Option(help="ClientID")] = "osdu-admin",
+    token: Annotated[
+        bool,
+        typer.Option("--token", envvar="USE_TOKEN", help="Use provided Access Token"),
+    ] = False,
+    access_token: Annotated[
+        str, typer.Option(envvar="TOKEN", help="Access Token")
+    ] = None,
 ):
     """
     Show legal tags
@@ -105,26 +119,42 @@ def legal_tags(
     --legal-tag allows lookup of a single legal tag
     """
     base_url = base_url.rstrip("/")
+    access_token = access_token.strip()
     cimpl_token_refresher = setup(base_url=base_url, realm=realm, client_id=client_id)
-    legal_url = base_url + "/api/legal/v1"
+    legal_url = base_url + conf.osdu_end_points["legal"]["api"]
+
     legal_client = LegalClient(
         legal_url=legal_url,
         provider=CLOUD_PROVIDER,
-        data_partition_id="osdu",
+        data_partition_id=realm,
         token_refresher=cimpl_token_refresher,
     )
     try:
         if legal_tag:
-            r = legal_client.get_legal_tag(legal_tag_name=legal_tag)
+            if token:
+                r = legal_client.get_legal_tag(
+                    legal_tag_name=legal_tag, bearer_token=access_token
+                )
+            else:
+                r = legal_client.get_legal_tag(legal_tag_name=legal_tag)
         else:
-            r = legal_client.list_legal_tags()
+            if token:
+                r = legal_client.list_legal_tags(bearer_token=access_token)
+            else:
+                r = legal_client.list_legal_tags()
+
     except ConnectionError as err:
         error_console.print(f"ConnectionError {legal_url}: {err}")
         raise typer.Exit(1)
+    except HTTPError as err:
+        error_console.print(f"HTTPError: {err}")
+        raise typer.Exit(1)
 
     if r.ok:
-        if output_json:
+        if output == utils.OutputType.json:
             console.print_json(json.dumps(r.json()))
+        elif output == utils.OutputType.excel or output == utils.OutputType.csv:
+            save.save_results_pandas(data=r.json(), output=output, record_path="legalTags", filename_prefix="legaltags")
         else:
             console.print(r.json())
     else:
@@ -133,20 +163,27 @@ def legal_tags(
 
 @cli.command(rich_help_panel="OSDU Related Commands")
 def groups(
-    output_json: Annotated[bool, typer.Option("--json", help="Output as JSON")] = False,
+    output: Annotated[
+        utils.OutputType, typer.Option("--output", "-o", help="Output style")
+    ] = None,
     base_url: Annotated[
         str, typer.Option(envvar="BASE_URL", help="BASE URL for OSDU")
     ] = BASE_URL,
     realm: Annotated[
-        str, typer.Option(envvar="KEYCLOAK_REALM", help="Keycloak Realm")
+        str,
+        typer.Option(
+            envvar="KEYCLOAK_REALM", help="Keycloak Realm/OSDU Data Partition ID"
+        ),
     ] = "osdu",
     client_id: Annotated[str, typer.Option(help="ClientID")] = "osdu-admin",
     user_id: Annotated[
         str, typer.Option(help="User ID for user with ENTITLEMENTS_IMPERSONATION")
     ] = None,
-    token: Annotated[bool, typer.Option(help="Use provided Access Token")] = False,
+    token: Annotated[
+        bool, typer.Option(envvar="USE_TOKEN", help="Use provided Access Token")
+    ] = False,
     access_token: Annotated[
-        str, typer.Option(envvar="TOKEN", help="Bearer Token")
+        str, typer.Option(envvar="TOKEN", help="Access Token")
     ] = None,
 ):
     """
@@ -162,25 +199,26 @@ def groups(
 
     User must be a member of service.entitlements.user to use this command (i.e. use entitlements service)
     """
+    if access_token:
+        access_token = access_token.strip()
+
     with console.status("Connecting..."):
         base_url = base_url.rstrip("/")
         cimpl_token_refresher = setup(
             base_url=base_url, realm=realm, client_id=client_id
         )
-        entitlements_url = base_url + "/api/entitlements/v2"
+        entitlements_url = base_url + conf.osdu_end_points["entitlements"]["api"]
         entitlement_client = EntitlementsClient(
             entitlements_url=entitlements_url,
             provider=CLOUD_PROVIDER,
-            data_partition_id="osdu",
+            data_partition_id=realm,
             token_refresher=cimpl_token_refresher,
             user_id=user_id,
         )
 
     try:
         if token and access_token:
-            r = entitlement_client.get_groups_for_user(
-                bearer_token=access_token.strip()
-            )
+            r = entitlement_client.get_groups_for_user(bearer_token=access_token)
         else:
             r = entitlement_client.get_groups_for_user()
     except ConnectionError as err:
@@ -191,8 +229,10 @@ def groups(
         raise typer.Exit(1)
 
     if r.ok:
-        if output_json:
+        if output == utils.OutputType.json:
             console.print_json(json.dumps(r.json()))
+        elif output == utils.OutputType.excel or output == utils.OutputType.csv:
+            save.save_results_pandas(data=r.json(), output=output, record_path="groups", filename_prefix="groups")
         else:
             console.print(r.json())
     else:
@@ -203,7 +243,9 @@ def groups(
 
 @cli.command(rich_help_panel="OSDU Related Commands")
 def group_members(
-    output_json: Annotated[bool, typer.Option("--json", help="Output as JSON")] = False,
+    output: Annotated[
+        utils.OutputType, typer.Option("--output", "-o", help="Output style")
+    ] = None,
     group_email: Annotated[
         str, typer.Option("--group-email", "-g", help="Group email to lookup")
     ] = "users@osdu.group",
@@ -213,35 +255,56 @@ def group_members(
         str, typer.Option(envvar="BASE_URL", help="BASE URL for OSDU")
     ] = BASE_URL,
     realm: Annotated[
-        str, typer.Option(envvar="KEYCLOAK_REALM", help="Keycloak Realm")
+        str,
+        typer.Option(envvar="KEYCLOAK_REALM", help="Keycloak Realm/OSDU Partition ID"),
     ] = "osdu",
     client_id: Annotated[str, typer.Option(help="ClientID")] = "osdu-admin",
+    token: Annotated[
+        bool, typer.Option(envvar="USE_TOKEN", help="Use provided Access Token")
+    ] = False,
+    access_token: Annotated[
+        str, typer.Option(envvar="TOKEN", help="Access Token")
+    ] = None,
 ):
     """
     Get all group members for a given group email
     """
+    if access_token:
+        access_token = access_token.strip()
+
     with console.status("Connecting..."):
         base_url = base_url.rstrip("/")
         cimpl_token_refresher = setup(
             base_url=base_url, realm=realm, client_id=client_id
         )
         entitlement_client = EntitlementsClient(
-            entitlements_url=base_url + "/api/entitlements/v2",
+            entitlements_url=base_url + conf.osdu_end_points["entitlements"]["api"],
             provider=CLOUD_PROVIDER,
-            data_partition_id="osdu",
+            data_partition_id=realm,
             token_refresher=cimpl_token_refresher,
         )
 
     try:
-        r = entitlement_client.get_group_members(
-            group_email=group_email, limit=limit, role=role
-        )
+        if token:
+            r = entitlement_client.get_group_members(
+                group_email=group_email,
+                limit=limit,
+                role=role,
+                bearer_token=access_token,
+            )
+        else:
+            r = entitlement_client.get_group_members(
+                group_email=group_email, limit=limit, role=role
+            )
     except ConnectionError as err:
         error_console.print(f"ConnectionError: {err}")
         raise typer.Exit(1)
+    except HTTPError as err:
+        error_console.print(f"HTTPError: {err}")
+        raise typer.Exit(1)
 
     if r.ok:
-        if output_json:
+        if output == utils.OutputType.json:
             console.print_json(json.dumps(r.json()))
         else:
             console.print(r.json())
@@ -260,9 +323,16 @@ def group_add(
         str, typer.Option(envvar="BASE_URL", help="BASE URL for OSDU")
     ] = BASE_URL,
     realm: Annotated[
-        str, typer.Option(envvar="KEYCLOAK_REALM", help="Keycloak Realm")
+        str,
+        typer.Option(envvar="KEYCLOAK_REALM", help="Keycloak Realm/OSDU Partition ID"),
     ] = "osdu",
     client_id: Annotated[str, typer.Option(help="ClientID")] = "osdu-admin",
+    token: Annotated[
+        bool, typer.Option(envvar="USE_TOKEN", help="Use provided Access Token")
+    ] = False,
+    access_token: Annotated[
+        str, typer.Option(envvar="TOKEN", help="Access Token")
+    ] = None,
 ):
     """
     Add member email to group (create group member)
@@ -274,6 +344,8 @@ def group_add(
         base_url=base_url,
         realm=realm,
         client_id=client_id,
+        token=token,
+        access_token=access_token,
     )
 
 
@@ -287,9 +359,16 @@ def group_del(
         str, typer.Option(envvar="BASE_URL", help="BASE URL for OSDU")
     ] = BASE_URL,
     realm: Annotated[
-        str, typer.Option(envvar="KEYCLOAK_REALM", help="Keycloak Realm")
+        str,
+        typer.Option(envvar="KEYCLOAK_REALM", help="Keycloak Realm/OSDU Partition ID"),
     ] = "osdu",
     client_id: Annotated[str, typer.Option(help="ClientID")] = "osdu-admin",
+    token: Annotated[
+        bool, typer.Option(envvar="USE_TOKEN", help="Use provided Access Token")
+    ] = False,
+    access_token: Annotated[
+        str, typer.Option(envvar="TOKEN", help="Access Token")
+    ] = None,
 ):
     """
     Delete member email from group (delete group member)
@@ -300,11 +379,20 @@ def group_del(
         base_url=base_url,
         realm=realm,
         client_id=client_id,
+        token=token,
+        access_token=access_token,
     )
 
 
 def add_user_to_group(
-    email: str, group_email: str, role: str, base_url: str, realm: str, client_id: str
+    email: str,
+    group_email: str,
+    role: str,
+    base_url: str,
+    realm: str,
+    client_id: str,
+    token: bool,
+    access_token: str,
 ):
     """
     add user to group
@@ -312,19 +400,29 @@ def add_user_to_group(
     base_url = base_url.rstrip("/")
     cimpl_token_refresher = setup(base_url=base_url, realm=realm, client_id=client_id)
     entitlement_client = EntitlementsClient(
-        entitlements_url=base_url + "/api/entitlements/v2",
+        entitlements_url=base_url + conf.osdu_end_points["entitlements"]["api"],
         provider=CLOUD_PROVIDER,
-        data_partition_id="osdu",
+        data_partition_id=realm,
         token_refresher=cimpl_token_refresher,
     )
 
     try:
-        r = entitlement_client.create_group_member(
-            group_email=group_email,
-            group_member=GroupMember(email=email, role=role),
-        )
+        if token:
+            r = entitlement_client.create_group_member(
+                group_email=group_email,
+                group_member=GroupMember(email=email, role=role),
+                bearer_token=access_token,
+            )
+        else:
+            r = entitlement_client.create_group_member(
+                group_email=group_email,
+                group_member=GroupMember(email=email, role=role),
+            )
     except ConnectionError as err:
         error_console.print(f"ConnectionError: {err}")
+        raise typer.Exit(1)
+    except HTTPError as err:
+        error_console.print(f"HTTPError: {err}")
         raise typer.Exit(1)
 
     if r.ok:
@@ -337,7 +435,13 @@ def add_user_to_group(
 
 
 def del_user_in_group(
-    member_email: str, group_email: str, base_url: str, realm: str, client_id: str
+    member_email: str,
+    group_email: str,
+    base_url: str,
+    realm: str,
+    client_id: str,
+    token: bool,
+    access_token: str,
 ):
     """
     delete user in group
@@ -345,19 +449,29 @@ def del_user_in_group(
     base_url = base_url.rstrip("/")
     cimpl_token_refresher = setup(base_url=base_url, realm=realm, client_id=client_id)
     entitlement_client = EntitlementsClient(
-        entitlements_url=base_url + "/api/entitlements/v2",
+        entitlements_url=base_url + conf.osdu_end_points["entitlements"]["api"],
         provider=CLOUD_PROVIDER,
-        data_partition_id="osdu",
+        data_partition_id=realm,
         token_refresher=cimpl_token_refresher,
     )
 
     try:
-        r = entitlement_client.delete_group_member(
-            group_email=group_email,
-            member_email=member_email,
-        )
+        if token:
+            r = entitlement_client.delete_group_member(
+                group_email=group_email,
+                member_email=member_email,
+                bearer_token=access_token,
+            )
+        else:
+            r = entitlement_client.delete_group_member(
+                group_email=group_email,
+                member_email=member_email,
+            )
     except ConnectionError as err:
         error_console.print(f"ConnectionError: {err}")
+        raise typer.Exit(1)
+    except HTTPError as err:
+        error_console.print(f"HTTPError: {err}")
         raise typer.Exit(1)
 
     if r.ok:
@@ -375,10 +489,17 @@ def groups_add(
         str, typer.Option(envvar="BASE_URL", help="BASE URL for OSDU")
     ] = BASE_URL,
     realm: Annotated[
-        str, typer.Option(envvar="KEYCLOAK_REALM", help="Data Partition/Keycloak Realm")
+        str,
+        typer.Option(envvar="KEYCLOAK_REALM", help="Keycloak Realm/OSDU Partition ID"),
     ] = "osdu",
     client_id: Annotated[str, typer.Option(help="ClientID")] = "osdu-admin",
     dry_run: Annotated[bool, typer.Option("--dry-run", help="Preview action")] = False,
+    token: Annotated[
+        bool, typer.Option(envvar="USE_TOKEN", help="Use provided Access Token")
+    ] = False,
+    access_token: Annotated[
+        str, typer.Option(envvar="TOKEN", help="Access Token")
+    ] = None,
 ):
     """
     Utility for adding user(s) to multiple groups
@@ -386,7 +507,7 @@ def groups_add(
     Example JSON:
 
     Save groups of a user:
-    cibutler groups --json > groups.json
+    cibutler groups -o json > groups.json
 
     Load groups:
     cibutler groups-add --file groups.json user@example.com ...
@@ -395,8 +516,11 @@ def groups_add(
     some-command | cibutler groups-add --file - user@example.com ...
 
     Or all together:
-    cibutler groups --json | cibutler groups-add --file - user@example.com ...
+    cibutler groups -o json | cibutler groups-add --file - user@example.com ...
     """
+
+    if access_token:
+        access_token = access_token.strip()
 
     if file is None:
         error_console.print("No file")
@@ -436,56 +560,93 @@ def groups_add(
                         base_url=base_url,
                         realm=realm,
                         client_id=client_id,
+                        token=token,
+                        access_token=access_token,
                     )
 
 
 @cli.command(rich_help_panel="OSDU Related Commands")
 def search(
-    output_json: Annotated[bool, typer.Option("--json", help="Output as JSON")] = False,
-    output_fancy: Annotated[
-        bool, typer.Option("--human", "-h", help="Output formatted for user")
-    ] = False,
-    kind: str = "*:*:*:*",
-    query: str = "",
-    limit: int = 10,
+    output: Annotated[
+        utils.OutputType, typer.Option("--output", "-o", help="Output style")
+    ] = None,
+    kind: Annotated[str, typer.Option(help="Search kind")] = "*:*:*:*",
+    query: Annotated[str, typer.Option(help="Search query")] = "",
+    limit: Annotated[int, typer.Option(help="Limit results")] = 10,
+    offset: Annotated[int, typer.Option(help="Search offset")] = 0,
     base_url: Annotated[
         str, typer.Option(envvar="BASE_URL", help="BASE URL for OSDU")
     ] = BASE_URL,
     realm: Annotated[
-        str, typer.Option(envvar="KEYCLOAK_REALM", help="Keycloak Realm")
+        str,
+        typer.Option(envvar="KEYCLOAK_REALM", help="Keycloak Realm/OSDU Partition ID"),
     ] = "osdu",
     client_id: Annotated[str, typer.Option(help="ClientID")] = "osdu-admin",
+    token: Annotated[
+        bool, typer.Option(envvar="USE_TOKEN", help="Use provided Access Token")
+    ] = False,
+    access_token: Annotated[
+        str, typer.Option(envvar="TOKEN", help="Access Token")
+    ] = None,
 ):
     """
     Simple OSDU Search
+
+    Output as json:
+    cibutler search -o json
+
+    Output as excel:
+    cibutler search -o excel
+
+    Output as csv:
+    cibutler search -o csv
+
+    Output as human readible:
+    cibutler search -o human
+
     """
+    if access_token:
+        access_token = access_token.strip()
+
     base_url = base_url.rstrip("/")
     cimpl_token_refresher = setup(base_url=base_url, realm=realm, client_id=client_id)
     search_client = SearchClient(
-        search_url=base_url + "/api/search/v2",
+        search_url=base_url + conf.osdu_end_points["search"]["api"],
         provider=CLOUD_PROVIDER,
-        data_partition_id="osdu",
+        data_partition_id=realm,
         token_refresher=cimpl_token_refresher,
     )
 
+    query_request = QueryRequest(kind=kind, query=query, limit=limit, offset=offset)
     try:
-        r = search_client.query_records(
-            QueryRequest(kind=kind, query=query, limit=limit)
-        )
+        if token:
+            r = search_client.query_records(
+                query_request=query_request,
+                bearer_token=access_token,
+            )
+        else:
+            r = search_client.query_records(
+                query_request=query_request,
+            )
     except ConnectionError as err:
         error_console.print(f"ConnectionError: {err}")
         raise typer.Exit(1)
+    except HTTPError as err:
+        error_console.print(f"HTTPError: {err}")
+        raise typer.Exit(1)
 
     if r.ok:
-        if output_json:
+        if output == utils.OutputType.json:
             console.print_json(json.dumps(r.json()))
         else:
             count = 0
             if "results" in r.json():
                 count = len(r.json()["results"])
 
-            if count and output_fancy:
-                display_search_results_fancy(r.json())
+            if output == utils.OutputType.human:
+                display_search_results_human(r.json())
+            elif output == utils.OutputType.excel or output == utils.OutputType.csv:
+                save.save_results_pandas(data=r.json(), output=output, filename_prefix="search")
             else:
                 console.print(r.json())
 
@@ -493,7 +654,7 @@ def search(
         error_console.print(f"Search error {r.status_code}")
 
 
-def display_search_results_fancy(data, show_kind=False):
+def display_search_results_human(data, show_kind=False):
     count = len(data["results"])
     if not count:
         return
@@ -537,85 +698,154 @@ def display_search_results_fancy(data, show_kind=False):
 @cli.command(rich_help_panel="OSDU Related Commands")
 def record(
     record_id: Annotated[str, typer.Argument(help="Storage Record")],
+    output: Annotated[
+        utils.OutputType, typer.Option("--output", "-o", help="Output style")
+    ] = None,
     get_retrieval_instructions: Annotated[
-        bool, typer.Option(help="Get Retrieval Instructions")
+        bool,
+        typer.Option(
+            "--get-retrieval-instructions", "-r", help="Get Retrieval Instructions"
+        ),
     ] = False,
     base_url: Annotated[
         str, typer.Option(envvar="BASE_URL", help="BASE URL for OSDU")
     ] = BASE_URL,
     realm: Annotated[
-        str, typer.Option(envvar="KEYCLOAK_REALM", help="Keycloak Realm")
+        str,
+        typer.Option(envvar="KEYCLOAK_REALM", help="Keycloak Realm/OSDU Partition ID"),
     ] = "osdu",
     client_id: Annotated[str, typer.Option(help="ClientID")] = "osdu-admin",
+    token: Annotated[
+        bool, typer.Option(envvar="USE_TOKEN", help="Use provided Access Token")
+    ] = False,
+    access_token: Annotated[
+        str, typer.Option(envvar="TOKEN", help="Access Token")
+    ] = None,
 ):
     """
     Simple OSDU Storage and Dataset record lookup
     """
+    if access_token:
+        access_token = access_token.strip()
+
     base_url = base_url.rstrip("/")
     cimpl_token_refresher = setup(base_url=base_url, realm=realm, client_id=client_id)
 
     if get_retrieval_instructions:
         dataset_dms_client = DatasetDmsClient(
-            dataset_url=base_url + "/api/dataset/v2",
+            dataset_url=base_url + conf.osdu_end_points["dataset"]["api"],
             provider=CLOUD_PROVIDER,
-            data_partition_id="osdu",
+            data_partition_id=realm,
             token_refresher=cimpl_token_refresher,
         )
         try:
-            r = dataset_dms_client.get_retrieval_instructions(record_id=record_id)
+            if token:
+                r = dataset_dms_client.get_retrieval_instructions(
+                    record_id=record_id,
+                    bearer_token=access_token,
+                )
+            else:
+                r = dataset_dms_client.get_retrieval_instructions(record_id=record_id)
+
         except ConnectionError as err:
             error_console.print(f"ConnectionError: {err}")
+            raise typer.Exit(1)
+        except HTTPError as err:
+            error_console.print(f"HTTPError: {err}")
             raise typer.Exit(1)
     else:
         record_client = RecordClient(
-            storage_url=base_url + "/api/storage/v2",
+            storage_url=base_url + conf.osdu_end_points["storage"]["api"],
             provider=CLOUD_PROVIDER,
-            data_partition_id="osdu",
+            data_partition_id=realm,
             token_refresher=cimpl_token_refresher,
         )
+
         try:
-            r = record_client.get_latest_record(recordId=record_id)
+            if token:
+                r = record_client.get_latest_record(
+                    recordId=record_id,
+                    bearer_token=access_token,
+                )
+            else:
+                r = record_client.get_latest_record(recordId=record_id)
         except ConnectionError as err:
             error_console.print(f"ConnectionError: {err}")
             raise typer.Exit(1)
+        except HTTPError as err:
+            error_console.print(f"HTTPError: {err}")
+            raise typer.Exit(1)
 
     if r.ok:
-        console.print(r.json())
+        if output == utils.OutputType.json:
+            console.print_json(json.dumps(r.json()))
+        elif output == utils.OutputType.excel or output == utils.OutputType.csv:
+            save.save_results_pandas(data=r.json(), output=output, filename_prefix="record", record_path=None)
+        else:
+            console.print(r.json())
     else:
         error_console.print(f"error {r.status_code}")
 
 
-@cli.command(rich_help_panel="OSDU Related Commands", hidden=True)
+@cli.command(rich_help_panel="OSDU Related Commands")
 def workflows(
+    output: Annotated[
+        utils.OutputType, typer.Option("--output", "-o", help="Output style")
+    ] = None,
     base_url: Annotated[
         str, typer.Option(envvar="BASE_URL", help="BASE URL for OSDU")
     ] = BASE_URL,
     realm: Annotated[
-        str, typer.Option(envvar="KEYCLOAK_REALM", help="Keycloak Realm")
+        str,
+        typer.Option(
+            envvar="KEYCLOAK_REALM", help="Keycloak Realm/OSDU Data Partition ID"
+        ),
     ] = "osdu",
     client_id: Annotated[str, typer.Option(help="ClientID")] = "osdu-admin",
+    token: Annotated[
+        bool, typer.Option(envvar="USE_TOKEN", help="Use provided Access Token")
+    ] = False,
+    access_token: Annotated[
+        str, typer.Option(envvar="TOKEN", help="Access Token")
+    ] = None,
 ):
     """
     Simple OSDU Workflows
     """
+    if access_token:
+        access_token = access_token.strip()
+
     base_url = base_url.rstrip("/")
     cimpl_token_refresher = setup(base_url=base_url, realm=realm, client_id=client_id)
 
     workflow_client = IngestionWorkflowClient(
-        ingestion_workflow_url=base_url + "/api/workflow/v1",
+        ingestion_workflow_url=base_url + conf.osdu_end_points["workflow"]["api"],
         provider=CLOUD_PROVIDER,
-        data_partition_id="osdu",
+        data_partition_id=realm,
         token_refresher=cimpl_token_refresher,
     )
 
     try:
-        r = workflow_client.get_all_workflows_in_partition()
+        if token:
+            r = workflow_client.get_all_workflows_in_partition(
+                bearer_token=access_token,
+            )
+        else:
+            r = workflow_client.get_all_workflows_in_partition()
     except ConnectionError as err:
         error_console.print(f"ConnectionError: {err}")
         raise typer.Exit(1)
+    except HTTPError as err:
+        error_console.print(f"HTTPError: {err}")
+        raise typer.Exit(1)
 
     if r.ok:
-        console.print(r.json())
+        if output == utils.OutputType.json:
+            console.print_json(json.dumps(r.json()))
+        elif output == utils.OutputType.excel or output == utils.OutputType.csv:
+            save.save_results_pandas(data=r.json(), output=output, filename_prefix="workflows", record_path=None)
+        else:
+            console.print(r.json())
     else:
         error_console.print(f"error {r.status_code} {r.text}")
 

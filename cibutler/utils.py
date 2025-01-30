@@ -5,6 +5,9 @@ import string
 import secrets
 import cpuinfo
 import signal
+from enum import Enum
+import sys
+import os
 
 
 def getconf_nprocs_online():
@@ -85,3 +88,23 @@ class GracefulExiter:
 
     def exit(self):
         return self.state
+
+
+# setup simple output class
+class OutputType(str, Enum):
+    human = "human"
+    excel = "excel"
+    json = "json"
+    csv = "csv"
+    none = "none"
+
+
+def open_file(filename):
+    try:
+        if sys.platform == "win32":
+            os.startfile(filename)
+        else:
+            opener = "open" if sys.platform == "darwin" else "xdg-open"
+            subprocess.call([opener, filename])
+    except FileNotFoundError:
+        print(f"Unable to open: {filename}")

@@ -231,12 +231,17 @@ def custom_values(filename="custom-values.yaml"):
 
 @cli.command(rich_help_panel="OSDU Related Commands")
 def envfile(
-    domain: str = typer.Option(default="localhost"),
+    base_url: Annotated[
+        str, typer.Option(envvar="BASE_URL", help="BASE URL for OSDU")
+    ] = "http://osdu.localhost",
 ):
     """
-    Download postman env file from OSDU config service
+    Download postman env file from local OSDU config service.
+
+    envfile does not currently support protected endpoints
     """
-    url = f"http://osdu.{domain}/api/config/v1/postman-environment"
+    base_url = base_url.rstrip("/")
+    url = base_url + "/api/config/v1/postman-environment"
     downloader.download([url], "./")
 
 
