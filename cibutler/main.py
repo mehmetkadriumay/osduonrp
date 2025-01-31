@@ -280,6 +280,9 @@ def install(
     force: Annotated[
         bool, typer.Option(help="Attempt to force install", hidden=True)
     ] = False,
+    debug: Annotated[
+        bool, typer.Option(help="Debug", hidden=True)
+    ] = False,
 ):
     """
     Install CImpli via minikube, install notebook and data load. :rocket:
@@ -297,15 +300,29 @@ def install(
         disk_size=disk_size,
     )
     ciminikube.minikube_start(force=force)
+
+    if debug:
+        input("Continue with istio?")
     if not check_istio() and not install_istio():
         error_console.print("Installation has failed")
         raise typer.Exit(1)
+
+    if debug:
+        input("Continue with install cimpl?")
     install_cimpl(version=version, source=source)
-    update_services()
+
+    if debug:
+        input("Continue with update services?")
+    update_services(debug=debug)
+
+    if debug:
+        input("Continue with check running?")
     if not check_running(entitlement_workaround=True, quiet=quiet):
         error_console.print("Installation has failed")
         raise typer.Exit(1)
 
+    if debug:
+        input("Continue with check running?")
     if install_notebook:
         helm_install_notebook(notebook_source=notebook_source, version=notebook_version)
 
@@ -391,8 +408,19 @@ def check(
     console.print(f"Platform: {platform.platform()}")
     utils.cpu_info()
     preflight_checks(skip_docker_daemon=skip_docker_daemon)
+    check_hosts()
     if all:
         post_checks()
+    
+
+@cli.command(rich_help_panel="Troubleshooting Commands")
+def check_hosts():
+    required = ["osdu.localhost", "osdu.local", "airflow.localhost", "minio.localhost", "keycloak.localhost"]
+    for host in required:
+        if utils.resolvehostname(host):
+            console.print(f"{host} :heavy_check_mark:")
+        else:
+            error_console.print(f"{host} not in hosts file :x:")
 
 
 def preflight_checks(skip_docker_daemon=False):

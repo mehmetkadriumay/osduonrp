@@ -1,6 +1,4 @@
-# Demo
-
-This demo, while outdated it might still be useful.
+# Demo :octicons-video-24:
 
 ## Installation of CI Butler
 <script src="https://asciinema.org/a/uusIRO2N5DfPhyJDhzeLhGJHS.js" id="asciicast-uusIRO2N5DfPhyJDhzeLhGJHS" async></script>

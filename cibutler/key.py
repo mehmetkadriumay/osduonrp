@@ -22,7 +22,7 @@ cli = typer.Typer(
     rich_markup_mode="rich", help="Community Implementation", no_args_is_help=True
 )
 
-KEYCLOAK_URL = "http://keycloak.localhost/"
+KEYCLOAK_URL = "http://keycloak.localhost"
 
 
 @cli.command(rich_help_panel="Keycloak Related Commands")
@@ -69,13 +69,14 @@ def token(
         data["password"] = password
         data["grant_type"] = "password"
 
+    url=f"{base_url}/realms/{realm}/protocol/openid-connect/token"
     try:
         r = requests.post(
-            url=f"{base_url}/realms/{realm}/protocol/openid-connect/token",
+            url=url,
             data=data,
         )
-    except requests.exceptions.ConnectionError:
-        error_console.print("Unable to connect to keycloak. Is tunnel running?")
+    except requests.exceptions.ConnectionError as err:
+        error_console.print(f"Unable to connect to {url}. Is tunnel running? {err}")
         raise typer.Exit(1)
 
     if r.ok:
@@ -88,7 +89,7 @@ def token(
             pyperclip.copy(r.json()["access_token"])
 
     else:
-        console.print(f"error {r.status_code} {r.text}")
+        console.print(f"error {url}: {r.status_code} {r.text}")
 
 
 @cli.command(rich_help_panel="Keycloak Related Commands")

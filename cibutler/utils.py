@@ -8,6 +8,7 @@ import signal
 from enum import Enum
 import sys
 import os
+import socket
 
 
 def getconf_nprocs_online():
@@ -108,3 +109,15 @@ def open_file(filename):
             subprocess.call([opener, filename])
     except FileNotFoundError:
         print(f"Unable to open: {filename}")
+
+
+def resolvehostname(hostname):
+    try:
+        return socket.gethostbyname(hostname)
+    except socket.gaierror:
+        return None
+
+if __name__ == "__main__":
+    print(resolvehostname("keycloak.localhost"))
+    print(resolvehostname("keycloak.cimpl"))
+    print(resolvehostname("foobar.localhost"))
