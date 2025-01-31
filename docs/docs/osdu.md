@@ -146,6 +146,44 @@ You can of course provide expected options:
 - `--limit` default is 10
 - `--offset` default is 0
 
+
+<details>
+<summary>Example Searches</summary>
+Here are some examples searches. These are options to cibutler search command.
+
+``` bash title="Wellbore Master Data Instances for Well with ID 1691"
+--kind="*:*:master-data--Wellbore:*" --query=data.WellID:\"osdu:master-data--Well:1691:\"
+```
+
+``` bash title="Wellbore Trajectory Work Product Components associated with Wellbore ID 1691"
+--kind="*:*:work-product-component--WellboreTrajectory:*" --query=data.WellboreID:\"osdu:master-data--Wellbore:1691:\"
+```
+
+``` bash title="Any record with any field equal to 'well'"
+--kind="*:*:*:*" --query=well
+```
+
+``` bash title="Where source is blended or TNO"
+--kind="*:*:*:*" --query="data.Source:(BLENDED TNO)"
+```
+
+``` bash title="Where source is exactly 'TNO'"
+--kind="*:*:*:*" --query=data.Source:\"TNO\"
+```
+
+``` bash title="All wellbore logs from 2022 year"
+--kind="*:*:work-product-component--WellLog:*" --query="createTime:[2022-01-01 TO 2025-03-31]"
+```
+
+``` bash title="All well logs deeper than 4000m"
+--kind="*:*:work-product-component--WellLog:*" query="data.BottomMeasuredDepth:[4000 TO *]"
+```
+
+``` bash title="All well logs deeper than 2000m or shallower than 4000m:"
+--kind="*:*:work-product-component--WellLog:*" --query="data.BottomMeasuredDepth:(>=2000 OR <=4000)"
+```
+</details>
+
 ## Record
 
 Get details on a single record

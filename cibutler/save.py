@@ -15,7 +15,7 @@ def save_results_pandas(
     normalize=True,
     index=True,
     output=utils.OutputType.excel,
-    record_path="results"
+    record_path="results",
 ):
     if output == utils.OutputType.excel:
         filename = f"{filename_prefix}.xlsx"
