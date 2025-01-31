@@ -156,7 +156,12 @@ def legal_tags(
         if output == utils.OutputType.json:
             console.print_json(json.dumps(r.json()))
         elif output == utils.OutputType.excel or output == utils.OutputType.csv:
-            save.save_results_pandas(data=r.json(), output=output, record_path="legalTags", filename_prefix="legaltags")
+            save.save_results_pandas(
+                data=r.json(),
+                output=output,
+                record_path="legalTags",
+                filename_prefix="legaltags",
+            )
         else:
             console.print(r.json())
     else:
@@ -234,7 +239,12 @@ def groups(
         if output == utils.OutputType.json:
             console.print_json(json.dumps(r.json()))
         elif output == utils.OutputType.excel or output == utils.OutputType.csv:
-            save.save_results_pandas(data=r.json(), output=output, record_path="groups", filename_prefix="groups")
+            save.save_results_pandas(
+                data=r.json(),
+                output=output,
+                record_path="groups",
+                filename_prefix="groups",
+            )
         else:
             console.print(r.json())
     else:
@@ -606,6 +616,30 @@ def search(
     Output as human readible:
     cibutler search -o human
 
+    Example Searches:
+    Wellbore Master Data Instances for Well with ID 1691:
+    --kind="*:*:master-data--Wellbore:*" --query=data.WellID:\\"osdu:master-data--Well:1691:\\"
+
+    Wellbore Trajectory Work Product Components associated with Wellbore ID 1691:
+    --kind="*:*:work-product-component--WellboreTrajectory:*" --query=data.WellboreID:\\"osdu:master-data--Wellbore:1691:\\"
+
+    Any record with any field equal "well":
+    --kind="*:*:*:*" --query=well
+
+    Where source is blended or TNO:
+    --kind="*:*:*:*" --query="data.Source:(BLENDED TNO)"
+
+    Where source is exactly "TNO":
+    --kind="*:*:*:*" --query=data.Source:\\"TNO\\"
+
+    All wellbore logs from 2022 year:
+    --kind="*:*:work-product-component--WellLog:*" --query="createTime:[2022-01-01 TO 2022-12-31]"
+
+    All well logs deeper than 4000m:
+    --kind="*:*:work-product-component--WellLog:*" --query="data.BottomMeasuredDepth:[4000 TO *]"
+
+    All well logs deeper than 2000m or shallower than 4000m:
+    --kind="*:*:work-product-component--WellLog:*" --query="data.BottomMeasuredDepth:(>=2000 OR <=4000)"
     """
     if access_token:
         access_token = access_token.strip()
@@ -648,7 +682,9 @@ def search(
             if output == utils.OutputType.human:
                 display_search_results_human(r.json())
             elif output == utils.OutputType.excel or output == utils.OutputType.csv:
-                save.save_results_pandas(data=r.json(), output=output, filename_prefix="search")
+                save.save_results_pandas(
+                    data=r.json(), output=output, filename_prefix="search"
+                )
             else:
                 console.print(r.json())
 
@@ -782,7 +818,9 @@ def record(
         if output == utils.OutputType.json:
             console.print_json(json.dumps(r.json()))
         elif output == utils.OutputType.excel or output == utils.OutputType.csv:
-            save.save_results_pandas(data=r.json(), output=output, filename_prefix="record", record_path=None)
+            save.save_results_pandas(
+                data=r.json(), output=output, filename_prefix="record", record_path=None
+            )
         else:
             console.print(r.json())
     else:
@@ -845,7 +883,12 @@ def workflows(
         if output == utils.OutputType.json:
             console.print_json(json.dumps(r.json()))
         elif output == utils.OutputType.excel or output == utils.OutputType.csv:
-            save.save_results_pandas(data=r.json(), output=output, filename_prefix="workflows", record_path=None)
+            save.save_results_pandas(
+                data=r.json(),
+                output=output,
+                filename_prefix="workflows",
+                record_path=None,
+            )
         else:
             console.print(r.json())
     else:
