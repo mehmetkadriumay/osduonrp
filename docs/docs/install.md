@@ -1,4 +1,4 @@
-# Install
+# Install :material-download:
 ## Requirements for using CI Butler and deploying CImpl locally
 
 Currently CI Butler only supports minikube with Docker.
@@ -30,16 +30,33 @@ graph LR
 
 If you intend to deploy CImpl locally you'll need the following:
 
-- Install docker desktop
-- Install helm
-- Install minikube
-- Install kubectl if not already included in the above (docker desktop normally includes it). CIButler attempts to be a pure python implementation but uses both APIs and `kubectl` to configure and deploy to kubernetes.
-- Increase RAM in docker desktop to 24+ GB and restart docker
-- Increase CPU limit in docker desktop to 6 or more cores. For the best performance setting it to the number of high performance cores is recommended.
-- Install Python3.11 or later.
-- Install pipx.
+1. Install [docker desktop](https://www.docker.com/products/docker-desktop/) :simple-docker:
+1. Install [helm](https://helm.sh/docs/intro/install/) :simple-helm:
+1. Install [minikube](https://minikube.sigs.k8s.io/docs/start)
+1. Install kubectl :simple-kubernetes: if not already included in the above (docker desktop normally includes it). CIButler attempts to be a pure python implementation but uses both APIs and `kubectl` to configure and deploy to kubernetes.
+1. Increase RAM in docker desktop to 24+ GB and restart docker
+1. Increase CPU limit in docker desktop to 6 or more cores. For the best performance setting it to the number of high performance cores is recommended.
+1. Add [Hosts file entries](./install.md#host-entries).
+1. Install Python3.11 or later. CIButler has not yet been tested with Python3.14.x
+1. Install [pipx](./install.md#how-to-install-pipx) 
+1. and then [install CI Butler](./install.md#install-ci-butler-pre-release-from-osdu-gitlab-built-packages) of course :smile:
+1. [CI Butler check](./install.md#ci-butler-check-prerequisites)
 
-### How to install Pipx
+---
+
+### Host Entries :material-dns-outline:
+
+Alternatively you can use the [minikube ingress addons](https://minikube.sigs.k8s.io/docs/handbook/addons/ingress-dns/) but my recommendation is to add them into `/etc/hosts` or `C:\Windows\System32\drivers\etc\hosts`
+```
+127.0.0.1 osdu.localhost osdu.local
+127.0.0.1 airflow.localhost airflow.local
+127.0.0.1 minio.localhost minio.local
+127.0.0.1 keycloak.localhost keycloak.local
+```
+
+---
+
+### How to install Pipx :simple-pipx:
 
 If you don't already have pipx installed see [Pipx install guide](https://pipx.pypa.io/latest/installation/)
 
@@ -62,6 +79,8 @@ Here are some options:
 
    Then restart your terminal/shell so that pipx will be in your path.
 
+---
+
 ## Optional but useful addons
 
 1. install metrics
@@ -77,11 +96,14 @@ To install CI Butler we recommend using pipx:
 pipx install cibutler --index-url https://community.opengroup.org/api/v4/projects/1558/packages/pypi/simple --pip-args="--extra-index-url=https://community.opengroup.org/api/v4/projects/148/packages/pypi/simple"
 ```
 
-## CI Butler Check Prerequisites for Deploying CImpl locally
+## CI Butler Check Prerequisites
+
+This is required if you are Deploying CImpl locally
 
 ``` bash title="Check Prerequisites"
 cibutler check
 ```
+If no issues are reported you should have a successful deployment of OSDU CImpl
 
 ## Install CImpl
 
@@ -103,13 +125,15 @@ If you want to have a install data loading and not have to select it later:
 cibutler install --data-load-flag=tno-volve-reference
 ```
 
-If you want to have a fully automated install without data loading:
+If you want to have a more automated install without data loading:
 
+``` bash title="Install with data loading in one step"
+cibutler install --data-load-flag=skip
 ```
-cibutler install --data-load-flag=skip --quiet
-```
+You can also add a `--quiet` less output.
 
 For more details on what happens in the CImpl install process see [install process](install_process.md).
+For full options on install see [Command Reference](./commands_reference.md).
 
 ## Confirm things are working
 
