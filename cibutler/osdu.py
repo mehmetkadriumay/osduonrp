@@ -37,6 +37,10 @@ cli = typer.Typer(
     rich_markup_mode="rich", help="Community Implementation", no_args_is_help=True
 )
 
+diag_cli = typer.Typer(
+    rich_markup_mode="rich", help="Community Implementation", no_args_is_help=True
+)
+
 BASE_URL = "http://osdu.localhost"
 CLOUD_PROVIDER = "baremetal"
 
@@ -66,7 +70,7 @@ def setup(base_url: str, realm: str = "osdu", client_id: str = "osdu-admin"):
     return cimpl_token_refresher
 
 
-@cli.command(rich_help_panel="Troubleshooting Commands")
+@cli.command(rich_help_panel="OSDU Related Commands")
 def refresh_token(
     base_url: Annotated[
         str, typer.Option(envvar="BASE_URL", help="BASE URL for OSDU")

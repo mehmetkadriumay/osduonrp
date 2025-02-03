@@ -10,6 +10,10 @@ cli = typer.Typer(
     rich_markup_mode="rich", help="Community Implementation", no_args_is_help=True
 )
 
+diag_cli = typer.Typer(
+    rich_markup_mode="rich", help="Community Implementation", no_args_is_help=True
+)
+
 # $ helm upgrade $CIMPL_SERVICE-deploy
 #  oci://$CI_REGISTRY_IMAGE/cimpl-helm/$CIMPL_HELM_PACKAGE_NAME
 # --version $CIMPL_HELM_PACKAGE_VERSION-$CIMPL_HELM_TAG --install --create-namespace --namespace=$CIMPL_HELM_NAMESPACE
@@ -62,7 +66,7 @@ def helm_list():
         return output.stdout.decode("ascii").strip()
 
 
-@cli.command(rich_help_panel="Troubleshooting Commands", name="helm-list")
+@diag_cli.command(rich_help_panel="Helm Diagnostic Commands", name="helm-list")
 def helm_list_command():
     """
     Show all releases in all namespaces

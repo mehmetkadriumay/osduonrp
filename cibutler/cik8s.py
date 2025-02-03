@@ -16,8 +16,12 @@ cli = typer.Typer(
     rich_markup_mode="rich", help="Community Implementation", no_args_is_help=True
 )
 
+diag_cli = typer.Typer(
+    rich_markup_mode="rich", help="Community Implementation", no_args_is_help=True
+)
 
-@cli.command(rich_help_panel="Troubleshooting Commands")
+
+@diag_cli.command(rich_help_panel="Kubernetes Diagnostic Commands")
 def list_pods():
     """
     List pods via api - IP, namespace and name
@@ -270,7 +274,7 @@ def selectcontext():
     return option
 
 
-@cli.command(rich_help_panel="Troubleshooting Commands")
+@diag_cli.command(rich_help_panel="Kubernetes Diagnostic Commands")
 def services():
     """
     Show virtual services
@@ -278,7 +282,7 @@ def services():
     console.print(kubectl_get())
 
 
-@cli.command(rich_help_panel="Troubleshooting Commands")
+@diag_cli.command(rich_help_panel="Kubernetes Diagnostic Commands")
 def ready():
     """
     Pods ready
@@ -292,7 +296,7 @@ def ready():
         console.print(":thumbs_up: Pods Ready")
 
 
-@cli.command(rich_help_panel="Troubleshooting Commands")
+@diag_cli.command(rich_help_panel="Kubernetes Diagnostic Commands")
 def ingress():
     """
     Show ingress IP

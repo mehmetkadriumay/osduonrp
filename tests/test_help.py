@@ -7,8 +7,7 @@ from cibutler.main import cli
 runner = CliRunner()
 
 
-@pytest.mark.skipif(sys.version_info == (3, 11), reason="requires python3.11")
-
+@pytest.mark.skipif(sys.version_info < (3, 11), reason="requires python3.11 or later")
 # Test all the helps
 def test_main_help():
     result = runner.invoke(cli, ["--help"])
@@ -39,15 +38,14 @@ def test_utility_commands_help(test_input):
         ("check-running"),
         ("client-secret"),
         ("post-message"),
-        ("refresh-token"),
         ("helm-list"),
         ("docker-info"),
         ("upload-data"),
         ("cpu"),
     ],
 )
-def test_troubleshooting_commands_help(test_input):
-    result = runner.invoke(cli, [test_input, "--help"])
+def test_diag_commands_help(test_input):
+    result = runner.invoke(cli, ["diag", test_input, "--help"])
     assert result.exit_code == 0, f"exit status, stdout: {result.stdout}"
 
 
@@ -72,7 +70,7 @@ def test_k8s_help(test_input):
         ("client-id"),
         ("add-users"),
         ("add-user"),
-        ("set-user-password"),
+        ("set-password"),
         ("delete-user"),
     ],
 )
@@ -85,6 +83,7 @@ def test_keycloak_commands_help(test_input):
 @pytest.mark.parametrize(
     "test_input",
     [
+        ("refresh-token"),
         ("legal-tags"),
         ("groups"),
         ("group-members"),
