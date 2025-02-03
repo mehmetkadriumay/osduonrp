@@ -16,7 +16,7 @@ import cibutler.downloader as downloader
 import cibutler.utils as utils
 import cibutler.cik8s as cik8s
 import cibutler.key as key
-from cibutler.cidocker import docker_info, docker_info_memtotal, docker_info_ncpu
+import cibutler.cidocker as cidocker
 import cibutler.ciminikube as ciminikube
 from cibutler.istio import check_istio, install_istio
 import cibutler.cimpl as cimpl
@@ -46,10 +46,31 @@ cli = typer.Typer(
     no_args_is_help=True,
 )
 
+diag_cli = typer.Typer(
+    rich_markup_mode="rich", help="Community Implementation", no_args_is_help=True
+)
+
 try:
     __version__ = importlib.metadata.version("mypackage")
 except Exception:
     from cibutler._version import __version__
+
+cli.add_typer(docs.cli, name="docs", help="Generate documentation", hidden=True)
+
+diag_cli.registered_commands += osdu.diag_cli.registered_commands
+diag_cli.registered_commands += key.diag_cli.registered_commands
+diag_cli.registered_commands += cimpl.diag_cli.registered_commands
+diag_cli.registered_commands += cihelm.diag_cli.registered_commands
+diag_cli.registered_commands += cik8s.diag_cli.registered_commands
+diag_cli.registered_commands += ciminikube.diag_cli.registered_commands
+diag_cli.registered_commands += cidocker.diag_cli.registered_commands
+
+cli.add_typer(
+    diag_cli,
+    name="diag",
+    help="System Insights and Advanced Diagnostics",
+    rich_help_panel="Utility Commands",
+)
 
 cli.registered_commands += update.cli.registered_commands
 cli.registered_commands += cik8s.cli.registered_commands
@@ -58,7 +79,6 @@ cli.registered_commands += ciminikube.cli.registered_commands
 cli.registered_commands += key.cli.registered_commands
 cli.registered_commands += osdu.cli.registered_commands
 cli.registered_commands += cihelm.cli.registered_commands
-cli.add_typer(docs.cli, name="docs", help="Generate documentation", hidden=True)
 
 
 def _version_callback(value: bool):
@@ -197,7 +217,9 @@ def helm_install(
         console.print(cihelm.helm_install(name=name, file=file, chart=chart))
 
 
-@cli.command(rich_help_panel="Troubleshooting Commands", deprecated=True)
+@diag_cli.command(
+    rich_help_panel="Diagnostic Commands", deprecated=True, hidden=True
+)
 def uninstall(
     name: str = typer.Option(default="osdu-cimpl"),
     force: bool = typer.Option(False, "--force", help="No confirmation prompt"),
@@ -245,14 +267,6 @@ def envfile(
     downloader.download([url], "./")
 
 
-@cli.command(rich_help_panel="Troubleshooting Commands", name="docker-info")
-def get_docker_info(output: str = "json"):
-    """
-    Get Docker info
-    """
-    console.print_json(docker_info(outputformat=output))
-
-
 @cli.command(rich_help_panel="CI Commands")
 def install(
     version: str = "0.27.0-local",
@@ -280,9 +294,7 @@ def install(
     force: Annotated[
         bool, typer.Option(help="Attempt to force install", hidden=True)
     ] = False,
-    debug: Annotated[
-        bool, typer.Option(help="Debug", hidden=True)
-    ] = False,
+    debug: Annotated[bool, typer.Option(help="Debug", hidden=True)] = False,
 ):
     """
     Install CImpli via minikube, install notebook and data load. :rocket:
@@ -366,7 +378,7 @@ def data_load(data_load_flag, data_source, data_version, wait_for_complete=True)
             )
 
 
-@cli.command(rich_help_panel="Troubleshooting Commands")
+@diag_cli.command(rich_help_panel="CImpl Diagnostic Commands")
 def upload_data(
     data_source: str = "oci://community.opengroup.org:5555/osdu/platform/deployment-and-operations/base-containers-gcp/bootstrap-data/gc-helm/gc-bootstrap-data-deploy",
     data_version: str = "0.0.7-gc3b0880b8",
@@ -384,17 +396,6 @@ def upload_data(
     )
 
 
-@cli.command(rich_help_panel="Troubleshooting Commands")
-def cpu():
-    """
-    Display CPU info
-    """
-    console.print(utils.cpu_info())
-    console.print(f"Logic cores: {os.cpu_count()}")
-    if "Darwin" in platform.system():
-        console.print(f"Performance Cores: {utils.macos_performance_cores()}")
-
-
 @cli.command(rich_help_panel="CI Commands")
 def check(
     all: Annotated[bool, typer.Option("--all", help="Additional checks")] = False,
@@ -408,19 +409,9 @@ def check(
     console.print(f"Platform: {platform.platform()}")
     utils.cpu_info()
     preflight_checks(skip_docker_daemon=skip_docker_daemon)
-    check_hosts()
+    cimpl.check_hosts()
     if all:
         post_checks()
-    
-
-@cli.command(rich_help_panel="Troubleshooting Commands")
-def check_hosts():
-    required = ["osdu.localhost", "osdu.local", "airflow.localhost", "minio.localhost", "keycloak.localhost"]
-    for host in required:
-        if utils.resolvehostname(host):
-            console.print(f"{host} :heavy_check_mark:")
-        else:
-            error_console.print(f"{host} not in hosts file :x:")
 
 
 def preflight_checks(skip_docker_daemon=False):
@@ -432,6 +423,7 @@ def preflight_checks(skip_docker_daemon=False):
             "minikube",
             "kubectl",
             "helm",
+            "pip",
         ]
         for cmd in external_utils:
             cmd_path = shutil.which(cmd)
@@ -450,7 +442,7 @@ def preflight_checks(skip_docker_daemon=False):
         else:
             error_console.print(f"Not enough CPU cores detected {nprocs} :x:")
 
-        ncpu = docker_info_ncpu()
+        ncpu = cidocker.docker_info_ncpu()
         if ncpu == 0:
             error_console.print(
                 "Error getting NCPU setting. Is the docker daemon running?"
@@ -466,8 +458,8 @@ def preflight_checks(skip_docker_daemon=False):
                 f"Please increase to a min. {MIN_CPU_CORES}.\nIf you recently changed this value try restarting docker."
             )
 
-        memory = utils.convert_size(docker_info_memtotal())
-        ram = docker_info_memtotal()
+        memory = utils.convert_size(cidocker.docker_info_memtotal())
+        ram = cidocker.docker_info_memtotal()
         if ram == 0:
             error_console.print(
                 "Error getting RAM setting. Is the docker daemon running?"
@@ -529,6 +521,9 @@ def main(
         ),
     ] = None,
 ):
+    """
+    Just for version callback
+    """
     pass
 
 

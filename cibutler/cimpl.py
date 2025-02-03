@@ -20,6 +20,40 @@ cli = typer.Typer(
     rich_markup_mode="rich", help="Community Implementation", no_args_is_help=True
 )
 
+diag_cli = typer.Typer(
+    rich_markup_mode="rich", help="Community Implementation", no_args_is_help=True
+)
+
+
+@diag_cli.command(rich_help_panel="CImpl Diagnostic Commands")
+def check_hosts():
+    """
+    Check hosts file
+    """
+    required = [
+        "osdu.localhost",
+        "osdu.local",
+        "airflow.localhost",
+        "minio.localhost",
+        "keycloak.localhost",
+    ]
+    for host in required:
+        if utils.resolvehostname(host):
+            console.print(f"{host} :heavy_check_mark:")
+        else:
+            error_console.print(f"{host} not in hosts file :x:")
+
+
+@diag_cli.command(rich_help_panel="CImpl Diagnostic Commands")
+def cpu():
+    """
+    Display CPU info
+    """
+    console.print(utils.cpu_info())
+    console.print(f"Logic cores: {os.cpu_count()}")
+    if "Darwin" in platform.system():
+        console.print(f"Performance Cores: {utils.macos_performance_cores()}")
+
 
 def install_cimpl(version: str, source: str, chart: str = "osdu-cimpl"):
     """
@@ -41,7 +75,7 @@ def install_cimpl(version: str, source: str, chart: str = "osdu-cimpl"):
     time.sleep(1)
 
 
-@cli.command(rich_help_panel="Troubleshooting Commands")
+@diag_cli.command(rich_help_panel="CImpl Diagnostic Commands")
 def update_services(debug: bool = False):
     """
     Update service virtual services - add additional hosts, etc
@@ -107,7 +141,7 @@ def update_services(debug: bool = False):
         )
 
 
-@cli.command(rich_help_panel="Troubleshooting Commands", name="notebook")
+@diag_cli.command(rich_help_panel="CImpl Diagnostic Commands", name="notebook")
 def notebook(
     notebook: str = "oci://us-central1-docker.pkg.dev/or2-msq-gnrg-osdu-mp-t1iylu/cimpl/helm/cimpl-notebook",
     notebook_version: str = "0.0.1",
@@ -141,7 +175,7 @@ def readyandavailable(data):
     )
 
 
-@cli.command(rich_help_panel="Troubleshooting Commands")
+@diag_cli.command(rich_help_panel="CImpl Diagnostic Commands")
 def check_running(
     sleep: int = 120,
     bootstrap_sleep: int = 30,
@@ -390,7 +424,7 @@ def get_keycloak_admin_password():
     return base64.b64decode(output.decode("ascii").strip()).decode()
 
 
-@cli.command(rich_help_panel="Troubleshooting Commands")
+@diag_cli.command(rich_help_panel="CImpl Diagnostic Commands")
 def client_secret():
     """
     Display Client Secret from keycloak secrets
@@ -429,7 +463,7 @@ def get_notebook_log():
     return output.decode("ascii").strip()
 
 
-@cli.command(rich_help_panel="Troubleshooting Commands")
+@diag_cli.command(rich_help_panel="CImpl Diagnostic Commands")
 def post_message(
     notebook_base_url: str = "http://notebook.localhost/notebooks/cimpl_notebook.ipynb",
     hostname: str = "osdu.localhost",

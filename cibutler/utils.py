@@ -117,6 +117,7 @@ def resolvehostname(hostname):
     except socket.gaierror:
         return None
 
+
 if __name__ == "__main__":
     print(resolvehostname("keycloak.localhost"))
     print(resolvehostname("keycloak.cimpl"))

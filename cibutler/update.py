@@ -28,12 +28,12 @@ def update(
         "--index-url",
         help="index-url",
     ),
+    project: str = "cibutler",
     pre: bool = typer.Option(True, "--pre/--no-pre", help="Pre release"),
 ):
     """
     Version and Update information for cibutler :rocket:
     """
-    project: str = "cibutler"
     # index_url = "https://community.opengroup.org/api/v4/projects/1351/packages/pypi/simple"
 
     text = f"""
@@ -64,8 +64,13 @@ def update(
         pre_release_msg = "pre-release"
 
     args = shlex.split(command_line)
-    p = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    stdout, stderr = p.communicate()
+    try:
+        p = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        stdout, stderr = p.communicate()
+    except FileNotFoundError:
+        error_console.print("Error: Unable to locate Pip")
+        raise typer.Exit(3)
+
     console.print(
         Panel(text, box=rich.box.SQUARE, expand=True, title="[green]Current[/green]")
     )

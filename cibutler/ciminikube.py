@@ -14,6 +14,10 @@ cli = typer.Typer(
     rich_markup_mode="rich", help="Community Implementation", no_args_is_help=True
 )
 
+diag_cli = typer.Typer(
+    rich_markup_mode="rich", help="Community Implementation", no_args_is_help=True
+)
+
 
 def suggested_cpu():
     nprocs = utils.cpu_count()
@@ -29,7 +33,7 @@ def suggested_cpu():
     return suggested_cpu_limit
 
 
-@cli.command(rich_help_panel="Troubleshooting Commands")
+@diag_cli.command(rich_help_panel="Minikube Diagnostic Commands")
 def config_minikube(
     profile: str = None,
     max_cpu: bool = False,

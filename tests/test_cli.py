@@ -21,4 +21,6 @@ def test_version():
 
 def test_version_command():
     result = runner.invoke(cli, ["version"])
+    if result.exit_code == 3:
+        pytest.skip("pip not installed")
     assert result.exit_code == 0

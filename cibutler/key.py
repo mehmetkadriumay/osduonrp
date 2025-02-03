@@ -22,6 +22,10 @@ cli = typer.Typer(
     rich_markup_mode="rich", help="Community Implementation", no_args_is_help=True
 )
 
+diag_cli = typer.Typer(
+    rich_markup_mode="rich", help="Community Implementation", no_args_is_help=True
+)
+
 KEYCLOAK_URL = "http://keycloak.localhost"
 
 
@@ -69,7 +73,7 @@ def token(
         data["password"] = password
         data["grant_type"] = "password"
 
-    url=f"{base_url}/realms/{realm}/protocol/openid-connect/token"
+    url = f"{base_url}/realms/{realm}/protocol/openid-connect/token"
     try:
         r = requests.post(
             url=url,
@@ -317,7 +321,7 @@ def list_users(
         console.print(users)
 
 
-@cli.command(rich_help_panel="Keycloak Related Commands")
+@diag_cli.command(rich_help_panel="Keycloak Diagnostic Commands")
 def get_user_id(
     username: Annotated[str, typer.Argument(help="Username")],
     admin_user: Annotated[
@@ -370,7 +374,7 @@ def get_user_id(
     console.print(detail)
 
 
-@cli.command(rich_help_panel="Keycloak Related Commands")
+@diag_cli.command(rich_help_panel="Keycloak Diagnostic Commands")
 def get_client_id(
     client_id: Annotated[str, typer.Argument(help="Client ID")],
     admin_user: Annotated[
@@ -701,7 +705,7 @@ def add_user_to_keycloak(
     return new_user
 
 
-@cli.command(rich_help_panel="Keycloak Related Commands")
+@cli.command(rich_help_panel="Keycloak Related Commands", name="set-password")
 def set_user_password(
     username: Annotated[str, typer.Argument(help="Username")],
     password: Annotated[
