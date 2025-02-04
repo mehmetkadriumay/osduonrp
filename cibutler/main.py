@@ -96,7 +96,7 @@ def prompt(ask, password=True, default=None, length=8):
     return value
 
 
-@cli.command(rich_help_panel="CI Commands", hidden=True)
+@diag_cli.command(rich_help_panel="CImpl Diagnostic Commands", hidden=True)
 def configure(
     default_random_password: bool = typer.Option(
         False, "--random", help="Use random passwords"
@@ -195,7 +195,9 @@ def configure(
 def helm_install(
     service_name: Annotated[str, typer.Option(help="OSDU service name")],
     name: Annotated[str, typer.Option(help="helm chart name")],
-    force: bool = typer.Option(False, "--force", help="No confirmation prompt"),
+    force: Annotated[
+        bool, typer.Option("--force", help="No confirmation prompt")
+    ] = False,
     file: Path = typer.Option(
         "custom-values.yaml",
         "-f",
@@ -217,20 +219,90 @@ def helm_install(
         console.print(cihelm.helm_install(name=name, file=file, chart=chart))
 
 
-@diag_cli.command(
-    rich_help_panel="Diagnostic Commands", deprecated=True, hidden=True
-)
+@cli.command(rich_help_panel="CI Commands")
+def delete(
+    force: Annotated[
+        bool, typer.Option("--force", help="No confirmation prompt")
+    ] = False,
+    profile: Annotated[str, typer.Option(hidden=True)] = None,
+):
+    """
+    Uninstall/Delete CImpl :skull:
+    """
+    context = cik8s.get_currentcontext()
+    if context and "minikube" in context:
+        if force or Confirm.ask(
+            f"Uninstall CImpl and delete Minikube deployment?",
+            default=True,
+        ):
+            if profile:
+                ciminikube.minikube_delete(profile=profile)
+            else:
+                ciminikube.minikube_delete()
+        else:
+            raise typer.Abort()
+    elif context:
+        uninstall(force=force)
+    else:
+        error_console.print("Kubernetes context not set. Run 'use-context' first")
+        raise typer.Abort()
+
+
+@diag_cli.command(rich_help_panel="CImpl Diagnostic Commands")
 def uninstall(
-    name: str = typer.Option(default="osdu-cimpl"),
-    force: bool = typer.Option(False, "--force", help="No confirmation prompt"),
+    force: Annotated[
+        bool, typer.Option("--force", help="No confirmation prompt")
+    ] = False,
+    name: Annotated[str, typer.Option(help="CImpl Name")] = "osdu-cimpl",
+    notebook_name: Annotated[
+        str, typer.Option(help="Notebook Name")
+    ] = "cimpl-notebook",
+    namespace: Annotated[
+        str,
+        typer.Option("--namespace", "-n", help="Namespace where CImpl is installed"),
+    ] = "default",
+    istio_namespace: Annotated[
+        str,
+        typer.Option(
+            "--istio-namespace", "-i", help="Namespace where istio is installed"
+        ),
+    ] = "istio-system",
 ):
     """
     Uninstall CImpl without deleting cluster
     """
-    if force or Confirm.ask(f"Uninstall {name}?", default=True):
-        console.print(cihelm.helm_uninstall(name))
-        console.print(cik8s.delete_item("secret"))
-        console.print(cik8s.delete_item("pvc"))
+    context = cik8s.get_currentcontext()
+    if force or Confirm.ask(
+        f"Uninstall CImpl {name}, notebook, istio and [red]anything else[/red] in namespace {namespace} of {context}?",
+        default=True,
+    ):
+        console.print(
+            "Note: kubernetes admin level resources (limits, quota, policy, authorization rules) will be ignored."
+        )
+        with console.status("Uninstalling helm charts..."):
+            console.print(
+                cihelm.helm_uninstall(name=notebook_name, namespace=namespace)
+            )
+            console.print(
+                cihelm.helm_uninstall(name="bootstrap-data-deploy", namespace=namespace)
+            )
+            console.print(cihelm.helm_uninstall(name=name, namespace=namespace))
+            console.print(
+                cihelm.helm_uninstall(name="istio-ingress", namespace=istio_namespace)
+            )
+            console.print(
+                cihelm.helm_uninstall(name="istio-base", namespace=istio_namespace)
+            )
+            console.print(
+                cihelm.helm_uninstall(name="istiod", namespace=istio_namespace)
+            )
+        with console.status("Cleaning up remaining..."):
+            console.print(cik8s.delete_item("secret"))
+            console.print(cik8s.delete_item("pvc"))
+            console.print(cik8s.delete_all(namespace=namespace))
+            console.print(cik8s.delete_all(namespace=istio_namespace))
+    else:
+        raise typer.Abort()
 
 
 def custom_values(filename="custom-values.yaml"):
@@ -269,59 +341,122 @@ def envfile(
 
 @cli.command(rich_help_panel="CI Commands")
 def install(
-    version: str = "0.27.0-local",
-    source: str = "oci://us-central1-docker.pkg.dev/or2-msq-gnrg-osdu-mp-t1iylu/cimpl/helm/osdu-cimpl",
-    notebook_source: str = "oci://us-central1-docker.pkg.dev/or2-msq-gnrg-osdu-mp-t1iylu/cimpl/helm/cimpl-notebook",
-    notebook_version: str = "0.0.1",
-    install_notebook: Annotated[bool, typer.Option(help="Install notebook")] = True,
-    data_source: str = "oci://community.opengroup.org:5555/osdu/platform/deployment-and-operations/base-containers-gcp/bootstrap-data/gc-helm/gc-bootstrap-data-deploy",
-    data_version: str = "0.0.7-gc3b0880b8",
-    data_load_flag: Annotated[str, typer.Option(callback=data_load_callback)] = None,
-    percent_memory: float = 0.98,
+    version: Annotated[str, typer.Option(help="CImpl version")] = "0.27.0-local",
+    source: Annotated[
+        str, typer.Option(help="CImpl source")
+    ] = "oci://us-central1-docker.pkg.dev/or2-msq-gnrg-osdu-mp-t1iylu/cimpl/helm/osdu-cimpl",
+    notebook_source: Annotated[
+        str, typer.Option(help="Notebook source")
+    ] = "oci://us-central1-docker.pkg.dev/or2-msq-gnrg-osdu-mp-t1iylu/cimpl/helm/cimpl-notebook",
+    notebook_version: Annotated[str, typer.Option(help="Notebook version")] = "0.0.1",
+    install_notebook: Annotated[
+        bool,
+        typer.Option("--install-notebook/--skip-notebook", help="Install notebook"),
+    ] = True,
+    data_source: Annotated[
+        str, typer.Option(help="Data load source")
+    ] = "oci://community.opengroup.org:5555/osdu/platform/deployment-and-operations/base-containers-gcp/bootstrap-data/gc-helm/gc-bootstrap-data-deploy",
+    data_version: Annotated[
+        str, typer.Option(help="Data load version")
+    ] = "0.0.7-gc3b0880b8",
+    data_load_flag: Annotated[
+        str,
+        typer.Option(
+            "--data-load-flag",
+            "-d",
+            callback=data_load_callback,
+            help="Data load option",
+        ),
+    ] = None,
+    percent_memory: Annotated[
+        float, typer.Option(help="What percent of docker memory should be allocated")
+    ] = 0.98,
     quiet: Annotated[
-        bool, typer.Option(help="Less output / for non-interactive use")
+        bool, typer.Option("--quiet", help="Less output / for non-interactive use")
     ] = False,
     max_cpu: Annotated[
-        bool, typer.Option(help="Let minikube use max CPU available in docker")
+        bool,
+        typer.Option("--max-cpu", help="Let minikube use max CPU available in docker"),
     ] = False,
     max_memory: Annotated[
-        bool, typer.Option(help="Let minikube use max memory available in docker")
+        bool,
+        typer.Option(
+            "--max-memory", help="Let minikube use max memory available in docker"
+        ),
     ] = False,
-    wait_for_complete: Annotated[bool, typer.Option(help="Monitor data load")] = True,
+    wait_for_complete: Annotated[
+        bool, typer.Option("--wait", help="Monitor data load")
+    ] = True,
     disk_size: Annotated[
         int, typer.Option(help="Disk size allocated to the minikube VM in GB")
     ] = 120,
     force: Annotated[
         bool, typer.Option(help="Attempt to force install", hidden=True)
     ] = False,
+    minikube: Annotated[
+        bool,
+        typer.Option(
+            "--minikube/--kubernetes",
+            "-m/-k",
+            help="Deploy Minikube (in Docker) or existing kubernetes cluster",
+        ),
+    ] = True,
+    arm: Annotated[
+        bool,
+        typer.Option(
+            "--arm/--x86",
+            help="Set CPU Arch ARM/x86 of Kubernetes Nodes. For use with -k",
+        ),
+    ] = False,
     debug: Annotated[bool, typer.Option(help="Debug", hidden=True)] = False,
 ):
     """
-    Install CImpli via minikube, install notebook and data load. :rocket:
+    Install CImpli using minikube or kubernetes cluster, install notebook and data load. :rocket:
 
     data-load-flag options:
     'dd-reference', 'partial-dd-reference', 'tno-volve-reference', 'all', 'skip'
     Leaving data-load-flag will cause install to prompt for value
 
     """
+
+    if (
+        minikube
+        or "docker-desktop" in cik8s.get_currentcontext()
+        or "minikube" in cik8s.get_currentcontext()
+    ):
+        """
+        If using minikube or docker-desktop as target then let's use
+        arch of machine to give hints as to what container build would run
+        best for CImpl
+        """
+        arch = platform.machine()
+        if arch == "arm64" or arch == "aarch64":
+            console.print(":sparkles: Running on ARM architecture")
+            arm = True
+        else:
+            console.print(":sparkles: Running on x86 architecture")
+
     start = time.time()
-    ciminikube.config_minikube(
-        percent_memory=percent_memory,
-        max_memory=max_memory,
-        max_cpu=max_cpu,
-        disk_size=disk_size,
-    )
-    ciminikube.minikube_start(force=force)
+    if minikube:
+        ciminikube.config_minikube(
+            percent_memory=percent_memory,
+            max_memory=max_memory,
+            max_cpu=max_cpu,
+            disk_size=disk_size,
+        )
+        ciminikube.minikube_start(force=force)
 
     if debug:
         input("Continue with istio?")
+
     if not check_istio() and not install_istio():
         error_console.print("Installation has failed")
         raise typer.Exit(1)
 
     if debug:
         input("Continue with install cimpl?")
-    install_cimpl(version=version, source=source)
+
+    install_cimpl(version=version, source=source, arm=arm)
 
     if debug:
         input("Continue with update services?")
@@ -333,14 +468,17 @@ def install(
         error_console.print("Installation has failed")
         raise typer.Exit(1)
 
+    duration = time.time() - start
+    duration_str = utils.convert_time(duration)
+    console.print(
+        f"CImpl installed in {duration_str}. Ready to install Notebook and Upload data"
+    )
+
     if debug:
         input("Continue with check running?")
     if install_notebook:
         helm_install_notebook(notebook_source=notebook_source, version=notebook_version)
 
-    duration = time.time() - start
-    duration_str = utils.convert_time(duration)
-    console.print(f"CImpl installed in {duration_str}. Ready to Upload data")
     data_load(
         data_load_flag=data_load_flag,
         data_source=data_source,
@@ -354,7 +492,9 @@ def install(
 
 def data_load(data_load_flag, data_source, data_version, wait_for_complete=True):
     load_work_products = False
-    if data_load_flag and "prompt" not in data_load_flag:
+    if data_load_flag and "skip" in data_load_flag:
+        return
+    elif data_load_flag and "prompt" not in data_load_flag:
         if "all" in data_load_flag:
             load_work_products = True
         bootstrap_upload_data(
@@ -380,10 +520,16 @@ def data_load(data_load_flag, data_source, data_version, wait_for_complete=True)
 
 @diag_cli.command(rich_help_panel="CImpl Diagnostic Commands")
 def upload_data(
-    data_source: str = "oci://community.opengroup.org:5555/osdu/platform/deployment-and-operations/base-containers-gcp/bootstrap-data/gc-helm/gc-bootstrap-data-deploy",
-    data_version: str = "0.0.7-gc3b0880b8",
-    data_load_flag: str = None,
-    wait_for_complete: bool = True,
+    data_source: Annotated[
+        str, typer.Option(help="Data source")
+    ] = "oci://community.opengroup.org:5555/osdu/platform/deployment-and-operations/base-containers-gcp/bootstrap-data/gc-helm/gc-bootstrap-data-deploy",
+    data_version: Annotated[
+        str, typer.Option(help="Data version")
+    ] = "0.0.7-gc3b0880b8",
+    data_load_flag: Annotated[str, typer.Option(help="Data load flag")] = None,
+    wait_for_complete: Annotated[
+        bool, typer.Option("--wait", help="Wait for complete")
+    ] = True,
 ):
     """
     Upload data to CImpl

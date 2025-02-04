@@ -5,6 +5,7 @@ import json
 from pick import pick
 from rich.console import Console
 from kubernetes import client, config
+from typing_extensions import Annotated
 
 # in future will need from kubernetes.client import configuration
 # and from kubernetes.client.rest import ApiException
@@ -184,6 +185,13 @@ def delete_item(name):
     return output.decode("ascii").strip()
 
 
+def delete_all(namespace: str = "default"):
+    output = subprocess.Popen(
+        ["kubectl", "delete", "all", "--all", "-n", "namespace"], stdout=subprocess.PIPE
+    ).communicate()[0]
+    return output.decode("ascii").strip()
+
+
 def kubectl_get(opt="vs"):
     try:
         output = subprocess.run(["kubectl", "get", opt], capture_output=True)
@@ -209,6 +217,11 @@ def get_ingress_ip():
     return output.decode("ascii").strip().split()[2]
 
 
+@diag_cli.command(rich_help_panel="Kubernetes Diagnostic Commands")
+def pods_not_running():
+    console.print(get_pods_not_running())
+
+
 def get_pods_not_running():
     cmd = "kubectl get pods -o jsonpath='{range .items[?(@.status.containerStatuses[-1:].state.waiting)]}{.metadata.name}: {@.status.containerStatuses[*].state.waiting.reason}{\"\\n\"}{end}'"
     args = shlex.split(cmd)
@@ -226,7 +239,11 @@ def get_deployment_status(deployment):
 
 
 @cli.command(rich_help_panel="k8s Related Commands")
-def use_context(context: str = None):
+def use_context(
+    context: Annotated[
+        str, typer.Option("--context", "-c", help="Kubernetes Context")
+    ] = None,
+):
     """
     Sets the current kubernetes context.
 
@@ -243,10 +260,12 @@ def current_context():
     """
     Display current kubernetes context
     """
-    console.print(currentcontext())
+    context = get_currentcontext()
+    if context:
+        console.print(context)
 
 
-def currentcontext():
+def get_currentcontext():
     # kubectl config view -o template --template='{{ index . "current-context" }}'
     output = subprocess.Popen(
         ["kubectl", "config", "current-context"], stdout=subprocess.PIPE
@@ -254,7 +273,7 @@ def currentcontext():
     return output.decode("ascii").strip()
 
 
-def usecontext(context):
+def usecontext(context: str = "docker-desktop"):
     output = subprocess.Popen(
         ["kubectl", "config", "use-context", context], stdout=subprocess.PIPE
     ).communicate()[0]
@@ -262,9 +281,17 @@ def usecontext(context):
 
 
 def selectcontext():
-    contexts, active_context = config.list_kube_config_contexts()
+    try:
+        contexts, active_context = config.list_kube_config_contexts()
+    except config.ConfigException as err:
+        error_console.print(err)
+        console.print(
+            "Try setting to a known good context 'use-context -c docker-desktop'"
+        )
+        raise typer.Abort()
+
     if not contexts:
-        print("Cannot find any context in kube-config file.")
+        error_console.print("Cannot find any context in kube-config file.")
         return
     contexts = [context["name"] for context in contexts]
     active_index = contexts.index(active_context["name"])

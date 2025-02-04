@@ -1,8 +1,15 @@
 # Install :material-download:
 ## Requirements for using CI Butler and deploying CImpl locally
 
-Currently CI Butler only supports minikube with Docker.
-However in future support could be added for deploying to kubernetes directly as well as minikube in: QEMU, Hyperkit, Hyper-V, KVM, Parallels, Podman, VirtualBox, VMware Fusion/Workstation, etc.
+!!! info "Support"
+    Currently CI Butler only supports **minikube with Docker** and deploying on **Kubernetes wtih Docker-Desktop** (built-in kubernetes).
+
+    - Additionally CIButler only supports a single deployment to a kubernetes cluster.
+    - Multiple deployments to different minikubes or separated by namespaces are not supported.
+    - Using both CImpl on minikube and CImpl on Kubernetes with Docker Desktop at the same time is not currently supported.
+
+    However in future support could be added for namespace separation, deploying to remote kubernetes deployments, as well as minikube in: QEMU, Hyperkit, Hyper-V, KVM, Parallels, Podman, VirtualBox, VMware Fusion/Workstation, etc.
+
 If you're interested in one of these please open an [issue](https://community.opengroup.org/osdu/ui/cibutler/-/issues/) to request it.
 
 !!! info "Install Requirements for installing CImpl locally"
@@ -28,7 +35,12 @@ graph LR
   D ---->|No| F[Installed!];
 ```
 
-If you intend to deploy CImpl locally you'll need the following:
+- Currently CI Butler only supports minikube with Docker and deploying to Docker-Desktop's built-in kubernetes.
+- Both are easy to use options and use the same basic commands to install, use and delete.
+- Using Kubernetes in Docker Desktop sometimes performs a little better since you have one less level of virtualization.
+
+#### Deploy on Minikube
+If you intend to deploy CImpl locally using minikube you'll need the following:
 
 1. Install [docker desktop](https://www.docker.com/products/docker-desktop/) :simple-docker:
 1. Install [helm](https://helm.sh/docs/intro/install/) :simple-helm:
@@ -42,12 +54,26 @@ If you intend to deploy CImpl locally you'll need the following:
 1. and then [install CI Butler](./install.md#install-ci-butler-pre-release-from-osdu-gitlab-built-packages) of course :smile:
 1. [CI Butler check](./install.md#ci-butler-check-prerequisites)
 
+#### Deploy on Kubernetes with Docker Desktop
+If you intend to deploy CImpl locally using kubernetes inside docker-desktop you'll need the following:
+
+1. Install [docker desktop](https://www.docker.com/products/docker-desktop/) :simple-docker:
+1. Install [helm](https://helm.sh/docs/intro/install/) :simple-helm:
+1. Install kubectl :simple-kubernetes: if not already included in the above (docker desktop normally includes it). CIButler attempts to be a pure python implementation but uses both APIs and `kubectl` to configure and deploy to kubernetes.
+1. Increase RAM in docker desktop to 24+ GB and restart docker
+1. Increase CPU limit in docker desktop to 6 or more cores. For the best performance setting it to the number of high performance cores is recommended.
+1. Add [Hosts file entries](./install.md#host-entries).
+1. Install Python3.11 or later. CIButler has not yet been tested with Python3.14.x
+1. Install [pipx](./install.md#how-to-install-pipx) 
+1. and then [install CI Butler](./install.md#install-ci-butler-pre-release-from-osdu-gitlab-built-packages) of course :smile:
+1. [CI Butler check](./install.md#ci-butler-check-prerequisites)
+
 ---
 
 ### Host Entries :material-dns-outline:
 
-Alternatively you can use the [minikube ingress addons](https://minikube.sigs.k8s.io/docs/handbook/addons/ingress-dns/) but my recommendation is to add them into `/etc/hosts` or `C:\Windows\System32\drivers\etc\hosts`
-```
+Alternatively if you are deploying CImpl on minikube you can use the [minikube ingress addons](https://minikube.sigs.k8s.io/docs/handbook/addons/ingress-dns/) but my recommendation is to add these entries into `/etc/hosts` or `C:\Windows\System32\drivers\etc\hosts`. These entries are also required for deploying CImpl on Kubernetes with Docker Desktop.
+``` title="Host file entries"
 127.0.0.1 osdu.localhost osdu.local
 127.0.0.1 airflow.localhost airflow.local
 127.0.0.1 minio.localhost minio.local
@@ -83,7 +109,7 @@ Here are some options:
 
 ## Optional but useful addons
 
-1. install metrics
+1. install metrics for minikube
    `minikube addons enable metrics-server`
    then you can use `minikube dashboard`
 1. install k9s
@@ -98,16 +124,22 @@ pipx install cibutler --index-url https://community.opengroup.org/api/v4/project
 
 ## CI Butler Check Prerequisites
 
-This is required if you are Deploying CImpl locally
+This is required if you are Deploying CImpl locally on minikube
 
 ``` bash title="Check Prerequisites"
 cibutler check
 ```
+This is required if you are Deploying CImpl locally on Kubernetes with Docker Desktop
+``` bash title="Check Prerequisites"
+cibutler check --all
+```
+
 If no issues are reported you should have a successful deployment of OSDU CImpl
 
-## Install CImpl
+## Install CImpl on Minikube
 
-CI Butler will attempt to make educated guesses on how much RAM and CPU to give OSDU based upon settings in Docker and the hardware that you have.
+By default CIButler will configure and start Minikube and use that as the target for CImpl.
+CI Butler will attempt to make educated guesses on how much RAM and CPU to give Minikube/CImpl based upon settings in Docker and the hardware that you have.
 
 ```
 cibutler install
@@ -121,13 +153,13 @@ cibutler install --max-cpu --max-memory
 
 If you want to have a install data loading and not have to select it later:
 
-```
+``` bash title="Install with data loading in one step"
 cibutler install --data-load-flag=tno-volve-reference
 ```
 
 If you want to have a more automated install without data loading:
 
-``` bash title="Install with data loading in one step"
+``` bash title="Install without data loading in one step"
 cibutler install --data-load-flag=skip
 ```
 You can also add a `--quiet` less output.
@@ -135,11 +167,31 @@ You can also add a `--quiet` less output.
 For more details on what happens in the CImpl install process see [install process](install_process.md).
 For full options on install see [Command Reference](./commands_reference.md).
 
+## Install CImpl on Kubernetes with Docker Desktop
+Make sure you have your kubernetes context to `docker-desktop`.
+You can verify this with 
+```
+cibutler current-context
+```
+
+Or change it with
+```
+cibutler use-context
+```
+
+``` bash title="Install on Kubernetes with Docker Desktop"
+cibutler install -k
+```
+
 ## Confirm things are working
 
 ### Tunnel
 
-Once you have CImpl deployed locally (with our without data) in minikube you'll need to run tunnel to be able to redirect your network to get to kubernetes pods running in the minikube docker container. Tunnel does require administrative privileges (via sudo).
+!!! info "Tunnel"
+
+    Tunnelling is only required when you are deploying on minikube.
+
+    Once you have CImpl deployed locally (with our without data) on minikube you'll need to run tunnel to be able to redirect your network to get to kubernetes pods running in the minikube docker container. Tunnel does require administrative privileges (via sudo on Mac and Linux).
 
 To do that, run one of the following:
 
@@ -214,16 +266,15 @@ When pods in Ready column will look like "1/1" the process is finished.
 
 ## Delete / Uninstall
 
-### To completely remove CImpl run one of the following
+### To completely remove CImpl run 
 
 - `cibutler delete`
-- `minikube delete`
 
 ### To completely remove cibutler
 
 `pipx uninstall cibutler`
 
-## Upgrading
+## Upgrading CI Butler
 
 Run the following command to check your version and get instructions how to upgrade
 
