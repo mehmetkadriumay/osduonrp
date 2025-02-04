@@ -79,7 +79,7 @@ compile-and-unit-test:
   image: ghcr.io/astral-sh/uv:$UV_VERSION-python$PYTHON_VERSION-$BASE_LAYER
   tags: ["osdu-small"]
   script:
-    - uv run pytest -v --junit-xml=unit_tests_report.xml --rootdir=tests/unit
+    - uv run pytest -v --junit-xml=unit_tests_report.xml tests/unit
   coverage: '/^(?i)(TOTAL).*\s+(\d+\%)$/'
   artifacts:
     when: always
