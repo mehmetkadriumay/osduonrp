@@ -174,22 +174,6 @@ def minikube_status(profile: str = None):
 
 
 @cli.command(rich_help_panel="CI Commands")
-def delete(
-    force: Annotated[
-        bool, typer.Option(prompt="Are you sure you want to delete the installation?")
-    ],
-    profile: Annotated[str, typer.Option()] = None,
-):
-    """
-    Uninstall/Delete CImpl :skull:
-    """
-    if profile:
-        minikube_delete(profile=profile)
-    else:
-        minikube_delete()
-
-
-@cli.command(rich_help_panel="CI Commands")
 def tunnel():
     """
     Access CI

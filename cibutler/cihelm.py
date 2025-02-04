@@ -46,10 +46,10 @@ def helm_install(
     return output.decode("ascii").strip()
 
 
-def helm_uninstall(name="osdu-cimpl"):
+def helm_uninstall(name="osdu-cimpl", namespace="default"):
     console.print(f"Uninstalling {name}...")
     output = subprocess.Popen(
-        ["helm", "uninstall", name], stdout=subprocess.PIPE
+        ["helm", "uninstall", name, "-n", namespace], stdout=subprocess.PIPE
     ).communicate()[0]
     return output.decode("ascii").strip()
 

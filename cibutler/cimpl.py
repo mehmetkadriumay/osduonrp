@@ -3,6 +3,7 @@ import os
 import typer
 from rich.console import Console
 import rich.progress
+from rich.prompt import Prompt, Confirm
 import ruamel.yaml
 import platform
 import time
@@ -10,6 +11,7 @@ import subprocess
 import inquirer
 import shlex
 import base64
+from typing_extensions import Annotated
 import cibutler.cik8s as cik8s
 import cibutler.utils as utils
 
@@ -55,20 +57,17 @@ def cpu():
         console.print(f"Performance Cores: {utils.macos_performance_cores()}")
 
 
-def install_cimpl(version: str, source: str, chart: str = "osdu-cimpl"):
+def install_cimpl(
+    version: str, source: str, chart: str = "osdu-cimpl", arm: bool = False
+):
     """
     Install CImpl
     """
-    arm = False
-    arch = platform.machine()
-    if arch == "arm64" or arch == "aarch64":
-        arm = True
-        console.print(":sparkles: Running on ARM architecture")
-    else:
-        console.print(":sparkles: Running on x86 architecture")
-
     if arm:
+        console.print(":pushpin: Installing CImpl. Expecting target system is ARM")
         source = f"{source}-arm"
+    else:
+        console.print(":pushpin: Installing CImpl. Expecting target system is x86")
 
     console.print(f":pushpin: Installing version {version} from {source}...")
     call(f"helm upgrade --install {chart} {source} --version {version}", shell=True)
@@ -275,6 +274,7 @@ def check_running(
     return running
 
 
+@diag_cli.command(rich_help_panel="CImpl Diagnostic Commands")
 def bootstrap_upload_data(
     data_load_flag: str,
     source: str,

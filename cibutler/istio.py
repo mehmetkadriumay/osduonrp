@@ -19,6 +19,7 @@ def check_istio():
 
 def install_istio(
     repo: str = "https://istio-release.storage.googleapis.com/charts",
+    namespace: str = "istio-system",
 ):
     """
     Install istio
@@ -30,17 +31,17 @@ def install_istio(
     )
     call("helm repo update", shell=True)
     call(
-        "helm upgrade --install istio-base istio/base --create-namespace -n istio-system",
+        f"helm upgrade --install istio-base istio/base --create-namespace -n {namespace}",
         shell=True,
     )
-    call("helm upgrade --install istiod istio/istiod -n istio-system", shell=True)
+    call(f"helm upgrade --install istiod istio/istiod -n {namespace}", shell=True)
     call(
-        "helm upgrade --install istio-ingress istio/gateway -n istio-system --set labels.istio=ingressgateway",
+        f"helm upgrade --install istio-ingress istio/gateway -n {namespace} --set labels.istio=ingressgateway",
         shell=True,
     )
     if check_istio():
         console.print(
-            ":surfer: Done! Istio is now installed in minikube cluster. Ready to deploy CImpl OSDU"
+            ":surfer: Done! Istio is now installed in kubernetes cluster. Ready to deploy CImpl OSDU"
         )
         return True
     else:

@@ -42,9 +42,7 @@ def docker_info(outputformat):
         return output.stdout.decode("ascii").strip()
 
 
-@diag_cli.command(
-    rich_help_panel="Docker Diagnostic Commands", name="docker-info"
-)
+@diag_cli.command(rich_help_panel="Docker Diagnostic Commands", name="docker-info")
 def get_docker_info(output: str = "json"):
     """
     Get Docker info

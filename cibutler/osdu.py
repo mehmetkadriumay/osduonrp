@@ -91,6 +91,7 @@ def refresh_token(
         console.print(token)
     else:
         error_console.print("Error getting token")
+        raise typer.Exit(1)
 
 
 @cli.command(rich_help_panel="OSDU Related Commands")
@@ -170,6 +171,7 @@ def legal_tags(
             console.print(r.json())
     else:
         error_console.print(f"Error {legal_url} list_legal_tags: {r.status_code}")
+        raise typer.Exit(1)
 
 
 @cli.command(rich_help_panel="OSDU Related Commands")
@@ -255,6 +257,7 @@ def groups(
         error_console.print(
             f"Error {entitlements_url} get_groups_for_user: {r.status_code}"
         )
+        raise typer.Exit(1)
 
 
 @cli.command(rich_help_panel="OSDU Related Commands")
@@ -326,6 +329,7 @@ def group_members(
             console.print(r.json())
     else:
         error_console.print(f"Error {r.status_code}")
+        raise typer.Exit(1)
 
 
 @cli.command(rich_help_panel="OSDU Related Commands")
@@ -448,6 +452,7 @@ def add_user_to_group(
             error_console.print(f"Already exists {r.status_code}")
         else:
             error_console.print(f"Error {r.status_code}")
+            raise typer.Exit(1)
 
 
 def del_user_in_group(
@@ -494,6 +499,7 @@ def del_user_in_group(
         console.print(r.json())
     else:
         error_console.print(f"Error {r.status_code} {r.text}")
+        raise typer.Exit(1)
 
 
 @cli.command(rich_help_panel="OSDU Related Commands")
@@ -694,6 +700,7 @@ def search(
 
     else:
         error_console.print(f"Search error {r.status_code}")
+        raise typer.Exit(1)
 
 
 def display_search_results_human(data, show_kind=False):
@@ -829,6 +836,7 @@ def record(
             console.print(r.json())
     else:
         error_console.print(f"error {r.status_code}")
+        raise typer.Exit(1)
 
 
 @cli.command(rich_help_panel="OSDU Related Commands")
@@ -897,6 +905,7 @@ def workflows(
             console.print(r.json())
     else:
         error_console.print(f"error {r.status_code} {r.text}")
+        raise typer.Exit(1)
 
 
 def get_info(endpt, base_url=BASE_URL):
@@ -942,7 +951,7 @@ def status(
             errors += 1
 
     if errors >= threshold:
-        raise typer.Exit(1)
+        raise typer.Exit(errors)
 
 
 @cli.command(rich_help_panel="OSDU Related Commands")
