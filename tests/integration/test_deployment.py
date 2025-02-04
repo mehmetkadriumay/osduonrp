@@ -19,6 +19,12 @@ def test_delete():
 
 
 @pytest.mark.skipif(sys.version_info < (3, 11), reason="requires python3.11 or later")
+def test_check():
+    result = runner.invoke(cli, ["check", "--all"])
+    assert result.exit_code == 0
+
+
+@pytest.mark.skipif(sys.version_info < (3, 11), reason="requires python3.11 or later")
 def test_install_on_kubernetes():
     result = runner.invoke(cli, ["install", "-k", "--data-load-flag", "dd-reference"])
     assert result.exit_code == 0
