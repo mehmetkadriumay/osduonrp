@@ -8,12 +8,12 @@
 - **Charter:** N/A
 - **Documentation:** [Doc](https://osdu.pages.opengroup.org/ui/cibutler/)
 - **Backlog:** 
-- **Slack Channel:** pmc-community-infrastructure
+- **Slack Channel:** [pmc-community-infrastructure](https://og.enterprise.slack.com/archives/C07SDCNAMR9)
 - **Meeting Schedule:** N/A
 
 ## Background
 
-Build automation for installing and configuring CImpl.
+Build automation for installing and configuring CImpl locally.
 
 ### Objectives
 
@@ -27,15 +27,15 @@ Build automation for installing and configuring CImpl.
 - [x] Automation to add users
 - [x] Automation to add users to groups
 - [ ] Install Official CImpl helm charts and images
-- [ ] Allow different size deployments - support smaller deployments (less services and smaller memory requests)
+- [ ] Allow different size deployments - support smaller deployments (less services and smaller memory requests) 
 
 #### Long Term Plan
 
 - Install individual CImpl service packages/charts
-- Allow configuration of each service - tshirt sizing for services (think replicas, memory and cpu requests)
+- Allow configuration of each service - tshirt sizing for services (think replicas, memory and cpu requests). This is an often requested feature - however setting artificially lower memory requests could potentially allow single user development & test environments for developers with smaller amounts of RAM at the potential cost of stability and availability. Configurability in automation and extensive testing will be needed in the future.
 - Provide more automation for pipeline usage
 - Automated testing
-- Support more than just minikube
+- Support more than just minikube and Docker Desktop
 
 ## Status
 
