@@ -2,7 +2,7 @@
 ## Requirements for using CI Butler and deploying CImpl locally
 
 !!! example "Support"
-    Currently CI Butler only supports **minikube with Docker** and deploying on **Kubernetes wtih Docker-Desktop** (built-in kubernetes).
+    Currently CI Butler only supports **minikube with Docker** and deploying on **Kubernetes with Docker-Desktop** (built-in kubernetes).
 
     - Additionally CIButler only supports a single deployment to a kubernetes cluster.
     - Multiple deployments to different minikubes or separated by namespaces are not supported.
