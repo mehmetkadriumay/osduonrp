@@ -1,16 +1,22 @@
 # Install :material-download:
 ## Requirements for using CI Butler and deploying CImpl locally
 
-!!! info "Support"
+!!! example "Support"
     Currently CI Butler only supports **minikube with Docker** and deploying on **Kubernetes wtih Docker-Desktop** (built-in kubernetes).
 
     - Additionally CIButler only supports a single deployment to a kubernetes cluster.
     - Multiple deployments to different minikubes or separated by namespaces are not supported.
-    - Using both CImpl on minikube and CImpl on Kubernetes with Docker Desktop at the same time is not currently supported.
+    - Using both CImpl on minikube and CImpl on Kubernetes with Docker Desktop at the same time is not currently supported. However if you manage the istio/ingress it should work.
+    - Success has been reported that local install to microk8s on Ubuntu works, however this is officially not supported or tested. You'll likely have to adjust istio/ingress on your own.
 
-    However in future support could be added for namespace separation, deploying to remote kubernetes deployments, as well as minikube in: QEMU, Hyperkit, Hyper-V, KVM, Parallels, Podman, VirtualBox, VMware Fusion/Workstation, etc.
+    However in future support could be added for:
 
-If you're interested in one of these please open an [issue](https://community.opengroup.org/osdu/ui/cibutler/-/issues/) to request it.
+    - Namespace separation (allowing multiple deployments),
+    - Deploying to other small local kubernetes (microk8s, kind, k3s, etc)
+    - Other remote kubernetes deployments (even cloud based),
+    - Minikube support for more than docker driver (i.e. QEMU, Hyperkit, Hyper-V, KVM, Parallels, Podman, VirtualBox, VMware Fusion/Workstation, etc.)
+
+    If you're interested in one of these please open an [issue](https://community.opengroup.org/osdu/ui/cibutler/-/issues/) to request it.
 
 !!! info "Install Requirements for installing CImpl locally"
 
@@ -20,6 +26,12 @@ If you're interested in one of these please open an [issue](https://community.op
     - 150GB of free disk space
     - Min. 32GB of RAM. Limited success and testing with Mac with 24GB of RAM. Hope to test more in the future.
     - 6 logical processors. Limited success with 4 logical processors
+
+    CIButler supports MacOS, Windows and Linux, and has been tested most often with:
+
+    - MacOS Sequoia 15.2 and later
+    - Windows11 - some users have reported needing [Microsoft C++ build tools](https://visualstudio.microsoft.com/visual-cpp-build-tools/) installed.
+
 
 ## Installation Instructions
 
@@ -281,3 +293,13 @@ Run the following command to check your version and get instructions how to upgr
 ``` bash title="version command"
 cibutler version
 ``` 
+
+!!! question "Additional Documentation is Available"
+    **CI Butler has great built-in help**:
+
+     - `cibutler --help` for overall help
+     - `cibutler command --help` for help on a individual command
+
+    There is also a command feference on all the commands and options:
+
+    - See [Command Reference](./commands_reference.md).
