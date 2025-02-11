@@ -157,3 +157,41 @@ test-deployment-of-package:
 include:
   - project: "osdu/platform/ci-cd-pipelines"
     file: "scanners/gitlab-ultimate.yml"
+
+sonarqube-scan-python:
+  stage: scan
+  needs: ["compile-and-unit-test"]
+  dependencies:
+  - compile-and-unit-test
+  rules:
+  - if: $SONAR_CLOUD_TOKEN
+  variables:
+    SONAR_USER_HOME: "${CI_PROJECT_DIR}/.sonar"  # Defines the location of the analysis task cache
+    GIT_DEPTH: "0"  # Tells git to fetch all the branches of the project, required by the analysis task
+  image:
+    name: sonarsource/sonar-scanner-cli:latest
+    entrypoint: [""]
+  cache:
+    key: "${CI_JOB_NAME}"
+    paths:
+      - .sonar/cache
+  script:
+    - |
+      SONAR_SCANNER_OPTS="
+        -Dsonar.host.url=${SONAR_CLOUD_URL}
+        -Dsonar.token=${SONAR_CLOUD_TOKEN}
+        -Dsonar.projectKey=org.opengroup.osdu:$CI_PROJECT_NAME
+        -Dsonar.organization=osdu
+        -Dsonar.python.coverage.reportPaths=coverage.xml"
+
+      if [ -n "$CI_MERGE_REQUEST_IID" ]; then
+        SONAR_SCANNER_OPTS="$SONAR_SCANNER_OPTS
+          -Dsonar.pullrequest.gitlab.api_url=https://community.opengroup.org/api/v4
+          -Dsonar.pullrequest.gitlab.project_id=$CI_PROJECT_ID
+          -Dsonar.pullrequest.key=$CI_MERGE_REQUEST_IID
+          -Dsonar.pullrequest.branch=$CI_COMMIT_REF_NAME
+          -Dsonar.pullrequest.base=$CI_MERGE_REQUEST_TARGET_BRANCH_NAME"
+      fi
+    - sonar-scanner $SONAR_SCANNER_OPTS
+
+  allow_failure: true

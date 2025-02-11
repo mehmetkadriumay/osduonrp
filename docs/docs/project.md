@@ -2,7 +2,7 @@
 
 ## Key resources and contact points
 
-- **Lead:** Shane Hutchins, [Hitachi DS]
+- **Lead:** Shane Hutchins, [ICS]
 - **Status:** Experimental
 - **Homepage:** [https://osdu.pages.opengroup.org/ui/cibutler/](https://osdu.pages.opengroup.org/ui/cibutler/)
 - **Charter:** N/A

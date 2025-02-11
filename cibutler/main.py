@@ -544,7 +544,7 @@ def upload_data(
 
 @cli.command(rich_help_panel="CI Commands")
 def check(
-    all: Annotated[bool, typer.Option("--all", help="Additional checks")] = False,
+    all: Annotated[bool, typer.Option("--all", "-k", help="Additional checks")] = False,
     skip_docker_daemon: Annotated[
         bool, typer.Option("--skip-docker-daemon", help="Skip testing docker daemon")
     ] = False,
@@ -557,7 +557,7 @@ def check(
     preflight_checks(skip_docker_daemon=skip_docker_daemon)
     cimpl.check_hosts()
     if all:
-        post_checks()
+        k8s_checks()
 
 
 def preflight_checks(skip_docker_daemon=False):
@@ -622,7 +622,7 @@ def preflight_checks(skip_docker_daemon=False):
             )
 
 
-def post_checks():
+def k8s_checks():
     info = cik8s.cluster_info()
     if info.count("running") >= 2:
         console.print("Kubernetes cluster running :thumbs_up:")

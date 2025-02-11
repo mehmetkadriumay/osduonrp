@@ -28,6 +28,7 @@ dependencies = [
     "pandas>=2.2.3",
     "pick>=2.4.0",
     "py-cpuinfo==9.0.0",
+    "pyhelm3>=0.4.0",
     "pyperclip>=1.9.0",
     "python-dateutil>=2.9.0.post0",
     "python-keycloak>=5.1.1",

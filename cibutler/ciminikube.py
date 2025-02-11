@@ -176,7 +176,9 @@ def minikube_status(profile: str = None):
 @cli.command(rich_help_panel="CI Commands")
 def tunnel():
     """
-    Access CI
+    Minkube tunnel
+
+    Creates a route to services deployed with type LoadBalancer and sets their Ingress to their ClusterIP.
     """
     call("minikube tunnel --alsologtostderr", shell=True)
 
