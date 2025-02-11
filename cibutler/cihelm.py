@@ -2,6 +2,18 @@ import subprocess
 
 from rich.console import Console
 import typer
+import asyncio
+from pyhelm3 import Client, Chart, ChartNotFoundError, CommandCancelledError
+from pydantic import ValidationError
+import typing
+from typing_extensions import Annotated
+from pydantic import (
+    Field,
+    DirectoryPath,
+    FilePath,
+    HttpUrl,
+)
+import json
 
 console = Console()
 error_console = Console(stderr=True, style="bold red")
@@ -13,6 +25,23 @@ cli = typer.Typer(
 diag_cli = typer.Typer(
     rich_markup_mode="rich", help="Community Implementation", no_args_is_help=True
 )
+
+Name = Annotated[str, Field(pattern=r"^[a-z0-9-]+$")]
+OCIPath = Annotated[str, Field(pattern=r"oci:\/\/*")]
+
+
+class OCIChart(Chart):
+    ref: typing.Union[DirectoryPath, FilePath, HttpUrl, OCIPath, Name] = Field(
+        ...,
+    )
+
+
+async def get_chart_oci(self, chart_ref, *, devel=False, repo=None, version=None):
+    metadata = await self._command.show_chart(
+        chart_ref, devel=devel, repo=repo, version=version
+    )
+    return OCIChart(_command=self._command, ref=chart_ref, repo=repo, metadata=metadata)
+
 
 # $ helm upgrade $CIMPL_SERVICE-deploy
 #  oci://$CI_REGISTRY_IMAGE/cimpl-helm/$CIMPL_HELM_PACKAGE_NAME
@@ -52,6 +81,164 @@ def helm_uninstall(name="osdu-cimpl", namespace="default"):
         ["helm", "uninstall", name, "-n", namespace], stdout=subprocess.PIPE
     ).communicate()[0]
     return output.decode("ascii").strip()
+
+
+@diag_cli.command(rich_help_panel="Helm Diagnostic Commands")
+def helm_details():
+    """
+    Helm list via python
+    """
+    asyncio.run(helm_list_details_async())
+
+
+async def helm_list_details_async():
+    client = Client()
+
+    # List the deployed releases
+    releases = await client.list_releases(all=True, all_namespaces=True)
+    for release in releases:
+        revision = await release.current_revision()
+        chart_metadata = await revision.chart_metadata()
+        console.print(
+            release.name,
+            release.namespace,
+            revision.revision,
+            str(revision.status),
+            chart_metadata.name,
+            chart_metadata.version,
+        )
+
+
+@diag_cli.command(rich_help_panel="Helm Diagnostic Commands")
+def show_chart(
+    chart_ref: Annotated[
+        str, typer.Argument(help="Ref or URL of Chart")
+    ] = "oci://community.opengroup.org:5555/osdu/platform/security-and-compliance/policy/cimpl-helm/cimpl-policy-deploy",
+    repo: Annotated[str, typer.Option(help="Repo. (Not for OCI usage)")] = None,
+    version: Annotated[
+        str, typer.Option("--version", "-v", help="Version")
+    ] = "0.0.7-cimpld9e282b9",
+):
+    """
+    Helm show chart details
+    """
+    asyncio.run(helm_get_chart_async(chart_ref=chart_ref, repo=repo, version=version))
+
+
+async def helm_get_chart_async(
+    chart_ref: str,
+    repo: str,
+    version: str,
+    devel=False,
+):
+    # client = Client()
+    # Monkey patch the get_chart method of the Client class
+    Client.get_chart = get_chart_oci
+    client = Client()
+
+    with console.status(f"Getting details on chart {chart_ref}..."):
+        # Fetch a chart
+        try:
+            chart = await client.get_chart(
+                chart_ref=chart_ref, repo=repo, version=version, devel=devel
+            )
+        except ChartNotFoundError as err:
+            error_console.print(err)
+            raise typer.Exit(1)
+        except ValidationError as err:
+            error_console.print(err)
+            raise typer.Exit(1)
+        except CommandCancelledError as err:
+            error_console.print(err)
+            raise typer.Abort()
+
+    console.print(
+        chart.metadata.name, chart.metadata.version, chart.metadata.app_version, chart.ref,
+    )
+    with console.status(f"Getting readme on chart {chart_ref}..."):
+        try:
+            console.print(await chart.readme())
+        except TypeError:
+            # no readme in chart
+            # raise typer.Exit(0)
+            pass
+        except CommandCancelledError as err:
+                error_console.print(err)
+                raise typer.Abort()
+    return chart
+
+
+@diag_cli.command(rich_help_panel="Helm Diagnostic Commands")
+def helm_install_or_upgrade(
+    release_name: str = "cimpl-policy-deploy",
+    chart_ref: Annotated[
+        str, typer.Argument(help="Ref or URL of Chart")
+    ] = "oci://community.opengroup.org:5555/osdu/platform/security-and-compliance/policy/cimpl-helm/cimpl-policy-deploy",
+    repo: Annotated[str, typer.Option(help="Repo. (Not for OCI usage)")] = None,
+    version: Annotated[
+        str, typer.Option("--version", "-v", help="Version")
+    ] = "0.0.7-cimpld9e282b9",
+    atomic: Annotated[bool, typer.Option(help="Atomic")] = False,
+    wait: Annotated[bool, typer.Option(help="Wait")] = False,
+    dry_run: Annotated[bool, typer.Option(help="Dry Run")] = False,
+):
+    """
+    Helm install or upgrade
+    """
+    asyncio.run(
+        helm_install_or_upgrade_async(
+            chart_ref=chart_ref,
+            release_name=release_name,
+            repo=repo,
+            version=version,
+            atomic=atomic,
+            wait=wait,
+            dry_run=dry_run,
+        )
+    )
+
+
+async def helm_install_or_upgrade_async(
+    chart_ref: str,
+    release_name: str,
+    repo: str,
+    version: str,
+    atomic: bool = False,
+    wait: bool = False,
+    dry_run: bool = True,
+):
+    # Install or upgrade a release
+
+    values = {"installCRDs": True}
+    client = Client()
+    # Monkey patch the get_chart method of the Client class
+    Client.get_chart = get_chart_oci
+
+    chart = await helm_get_chart_async(chart_ref=chart_ref, repo=repo, version=version)
+    with console.status(f"Installing/upgrading {chart_ref}..."):
+        try:
+            revision = await client.install_or_upgrade_release(
+                release_name,
+                chart,
+                values,
+                atomic=atomic,
+                wait=wait,
+                dry_run=dry_run,
+            )
+        except CommandCancelledError as err:
+                error_console.print(err)
+                raise typer.Abort()
+
+    console.print(
+        revision.release.name,
+        revision.release.namespace,
+        revision.revision,
+        str(revision.status),
+        revision.description,
+    )
+
+    if dry_run:
+        console.print(revision)
 
 
 def helm_list():

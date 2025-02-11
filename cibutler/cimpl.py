@@ -3,7 +3,6 @@ import os
 import typer
 from rich.console import Console
 import rich.progress
-from rich.prompt import Prompt, Confirm
 import ruamel.yaml
 import platform
 import time
@@ -75,7 +74,7 @@ def install_cimpl(
 
 
 @diag_cli.command(rich_help_panel="CImpl Diagnostic Commands")
-def update_services(debug: bool = False):
+def update_services(debug: Annotated[bool, typer.Option(help="Run with Debug")] = False):
     """
     Update service virtual services - add additional hosts, etc
     """
