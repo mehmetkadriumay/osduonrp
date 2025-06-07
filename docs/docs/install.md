@@ -69,7 +69,7 @@ If you intend to deploy CImpl locally using minikube you'll need the following:
 #### Deploy on Kubernetes with Docker Desktop
 If you intend to deploy CImpl locally using kubernetes inside docker-desktop you'll need the following:
 
-1. Install [docker desktop](https://www.docker.com/products/docker-desktop/) :simple-docker:
+1. Install [docker desktop](https://www.docker.com/products/docker-desktop/) and enable Kubernetes under Settings :simple-docker:
 1. Install [helm](https://helm.sh/docs/intro/install/) :simple-helm:
 1. Install kubectl :simple-kubernetes: if not already included in the above (docker desktop normally includes it). CIButler attempts to be a pure python implementation but uses both APIs and `kubectl` to configure and deploy to kubernetes.
 1. Increase RAM in docker desktop to 24+ GB and restart docker
