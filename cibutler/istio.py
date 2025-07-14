@@ -1,4 +1,5 @@
 from subprocess import call
+from cibutler.shell import run_shell_command
 from rich.console import Console
 import cibutler.cihelm as cihelm
 
@@ -25,20 +26,15 @@ def install_istio(
     Install istio
     """
     console.print(f":pushpin: Adding helm repo {repo}")
-    call(
-        f"helm repo add istio {repo}",
-        shell=True,
-    )
-    call("helm repo update", shell=True)
-    call(
+    run_shell_command (f"helm repo add istio {repo}")
+    run_shell_command("helm repo update")
+
+    run_shell_command(
         f"helm upgrade --install istio-base istio/base --create-namespace -n {namespace}",
-        shell=True,
     )
-    call(f"helm upgrade --install istiod istio/istiod -n {namespace}", shell=True)
-    call(
-        f"helm upgrade --install istio-ingress istio/gateway -n {namespace} --set labels.istio=ingressgateway",
-        shell=True,
-    )
+    run_shell_command(f"helm upgrade --install istiod istio/istiod -n {namespace}")
+    run_shell_command(f"helm upgrade --install istio-ingress istio/gateway -n {namespace} --set labels.istio=ingressgateway")
+
     if check_istio():
         console.print(
             ":surfer: Done! Istio is now installed in kubernetes cluster. Ready to deploy CImpl OSDU"

@@ -23,12 +23,27 @@ diag_cli = typer.Typer(
 
 
 @diag_cli.command(rich_help_panel="Kubernetes Diagnostic Commands")
-def list_pods():
+def list_pods(
+    incluster: Annotated[
+        bool,
+        typer.Option("--incluster", help="Use incluster config"),
+    ] = False,
+):
     """
     List pods via api - IP, namespace and name
     """
     # Configs can be set in Configuration class directly or using helper utility
-    config.load_kube_config()
+    try:
+        if incluster:
+            config.load_incluster_config()
+        else:
+            config.load_kube_config()
+    except config.config_exception.ConfigException as err:
+        console.print(f":x: Error loading kube config: {err}")
+        raise typer.Exit(1)
+    except Exception as err:
+        console.print(f":x: Error loading kube config: {err}")
+        raise typer.Exit(1)
 
     k8s_api = client.CoreV1Api()
     ret = k8s_api.list_pod_for_all_namespaces(watch=False)
@@ -219,6 +234,9 @@ def get_ingress_ip():
 
 @diag_cli.command(rich_help_panel="Kubernetes Diagnostic Commands")
 def pods_not_running():
+    """
+    Show pods that are not running
+    """
     console.print(get_pods_not_running())
 
 

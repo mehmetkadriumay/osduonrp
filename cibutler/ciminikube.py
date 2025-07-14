@@ -138,39 +138,62 @@ def minikube_start(
             f":fire: Starting minikube ({profile}) with {container_runtime} {kubernetes_version} kubernetes with {nodes} node(s)..."
         )
         call(
-            f"minikube start --container-runtime={container_runtime} --kubernetes-version={kubernetes_version} --nodes={nodes} --profile {profile}",
-            shell=True,
+            [
+                "minikube",
+                "start",
+                f"--container-runtime={container_runtime}",
+                f"--kubernetes-version={kubernetes_version}",
+                f"--nodes={nodes}",
+                f"--profile {profile}",
+            ],
+            shell=False,
         )
         call(
-            f"minikube kubectl -- config use-context minikube --profile {profile}",
-            shell=True,
+            [
+                "minikube",
+                "kubectl",
+                "--",
+                "config",
+                "use-context",
+                "minikube",
+                "--profile",
+                profile,
+            ],
+            shell=False,
         )
     else:
         console.print(
             f":fire: Starting minikube with {container_runtime} {kubernetes_version} kubernetes with {nodes} node(s)..."
         )
         call(
-            f"minikube start --container-runtime={container_runtime} --kubernetes-version={kubernetes_version} --nodes={nodes} {force_opt}",
-            shell=True,
+            [
+                "minikube",
+                "start",
+                f"--container-runtime={container_runtime}",
+                f"--kubernetes-version={kubernetes_version}",
+                f"--nodes={nodes}",
+                force_opt,
+            ],
+            shell=False,
         )
         call(
-            "minikube kubectl -- config use-context minikube",
-            shell=True,
+            ["minikube", "kubectl", "--", "config", "use-context", "minikube"],
+            shell=False,
         )
 
 
 def minikube_delete(profile: str = None):
     if profile:
-        call(f"minikube delete -p {profile}", shell=True)
+        call(["minikube", "delete", "-p", profile], shell=False)
     else:
-        call("minikube delete", shell=True)
+        call(["minikube", "delete"], shell=False)
 
 
 def minikube_status(profile: str = None):
     if profile:
-        call(f"minikube status -p {profile}", shell=True)
+        call(["minikube", "status", "-p", profile], shell=False)
     else:
-        call("minikube status", shell=True)
+        call(["minikube", "status"], shell=False)
 
 
 @cli.command(rich_help_panel="CI Commands")
@@ -180,7 +203,7 @@ def tunnel():
 
     Creates a route to services deployed with type LoadBalancer and sets their Ingress to their ClusterIP.
     """
-    call("minikube tunnel --alsologtostderr", shell=True)
+    call(["minikube", "tunnel", "--alsologtostderr"], shell=False)
 
 
 if __name__ == "__main__":

@@ -13,6 +13,7 @@ import base64
 from typing_extensions import Annotated
 import cibutler.cik8s as cik8s
 import cibutler.utils as utils
+from cibutler.shell import run_shell_command
 
 console = Console()
 error_console = Console(stderr=True, style="bold red")
@@ -69,12 +70,14 @@ def install_cimpl(
         console.print(":pushpin: Installing CImpl. Expecting target system is x86")
 
     console.print(f":pushpin: Installing version {version} from {source}...")
-    call(f"helm upgrade --install {chart} {source} --version {version}", shell=True)
+    run_shell_command(f"helm upgrade --install {chart} {source} --version {version}")
     time.sleep(1)
 
 
 @diag_cli.command(rich_help_panel="CImpl Diagnostic Commands")
-def update_services(debug: Annotated[bool, typer.Option(help="Run with Debug")] = False):
+def update_services(
+    debug: Annotated[bool, typer.Option(help="Run with Debug")] = False,
+):
     """
     Update service virtual services - add additional hosts, etc
     """
@@ -86,10 +89,11 @@ def update_services(debug: Annotated[bool, typer.Option(help="Run with Debug")] 
             if "cimpl" not in vsvc and "NAME" not in vsvc:
                 filename = f"{vsvc}.yaml"
                 console.print(f":detective: {vsvc}")
-                call(
-                    f"kubectl get virtualservice {vsvc} -o yaml > {filename}",
-                    shell=True,
-                )
+                with open(filename, "w") as outfile:
+                    call(
+                        ["kubectl", "get", "virtualservice", vsvc, "-o", "yaml"],
+                        stdout=outfile,
+                    )
 
                 try:
                     with open(filename, "r") as file:
@@ -110,14 +114,12 @@ def update_services(debug: Annotated[bool, typer.Option(help="Run with Debug")] 
                     raise typer.Exit(1)
 
                 call(
-                    f"kubectl delete virtualservice {vsvc}",
-                    shell=True,
+                    ["kubectl", "delete", "virtualservice", vsvc],
                     stdout=subprocess.DEVNULL,
                     stderr=subprocess.STDOUT,
                 )
                 call(
-                    f"kubectl apply -f {filename}",
-                    shell=True,
+                    ["kubectl", "apply", "-f", filename],
                     stdout=subprocess.DEVNULL,
                     stderr=subprocess.STDOUT,
                 )
@@ -126,14 +128,12 @@ def update_services(debug: Annotated[bool, typer.Option(help="Run with Debug")] 
                     os.remove(filename)
 
         call(
-            "kubectl delete ra --all",
-            shell=True,
+            ["kubectl", "delete", "ra", "--all"],
             stdout=subprocess.DEVNULL,
             stderr=subprocess.STDOUT,
         )
         call(
-            "kubectl delete authorizationpolicy entitlements-jwt-policy",
-            shell=True,
+            ["kubectl", "delete", "authorizationpolicy", "entitlements-jwt-policy"],
             stdout=subprocess.DEVNULL,
             stderr=subprocess.STDOUT,
         )
@@ -158,10 +158,7 @@ def helm_install_notebook(notebook_source: str, version: str):
     with console.status("Getting ingress..."):
         ingress_ip = cik8s.get_ingress_ip()
     console.print(":fire: Installing Notebook...")
-    call(
-        f"helm upgrade --install cimpl-notebook {notebook_source} --version {version} --set conf.ingressIP={ingress_ip}",
-        shell=True,
-    )
+    run_shell_command(f"helm upgrade --install cimpl-notebook {notebook_source} --version {version} --set conf.ingressIP={ingress_ip}")
 
 
 def readyandavailable(data):
@@ -192,7 +189,7 @@ def check_running(
     while True:
         if not quiet:
             console.clear()
-            call("kubectl get po", shell=True)
+            call(["kubectl", "get", "po"])
         pods_not_ready = cik8s.get_pods_not_running()
         duration = time.time() - start
         if pods_not_ready:
@@ -204,13 +201,21 @@ def check_running(
                 and "keycloak-bootstrap" in pods_not_ready
             ):
                 console.print(":fire: [cyan]Restarting entitlements...[/cyan]")
+                # kubectl rollout restart deploy entitlements > /dev/null
                 call(
-                    "kubectl rollout restart deploy entitlements > /dev/null",
-                    shell=True,
+                    ["kubectl", "rollout", "restart", "deploy", "entitlements"],
+                    stdout=subprocess.DEVNULL,
                 )
+                # kubectl rollout restart deploy entitlements-bootstrap > /dev/null
                 call(
-                    "kubectl rollout restart deploy entitlements-bootstrap > /dev/null",
-                    shell=True,
+                    [
+                        "kubectl",
+                        "rollout",
+                        "restart",
+                        "deploy",
+                        "entitlements-bootstrap",
+                    ],
+                    stdout=subprocess.DEVNULL,
                 )
 
             if flag.exit():
@@ -290,16 +295,15 @@ def bootstrap_upload_data(
     Bootstrap data upload process into OSDU
     """
     console.print(f":fire: Starting uploading data: {data_load_flag}... {version}")
-    call(
+
+    run_shell_command(
         f'helm upgrade --install bootstrap-data-deploy {source}\
     --version {version} \
     --set global.dataPartitionId="{partition}" \
     --set global.onPremEnabled=true \
     --set global.deployWorkproducts={load_work_products} \
     --set data.bootstrapReferenceFlag="{data_load_flag}" \
-    --set data.bootstrapServiceAccountName="{service_account_name}"',
-        shell=True,
-    )
+    --set data.bootstrapServiceAccountName="{service_account_name}"')
 
     console.print(f":fire: Updating deployments... {bootstrap_data_reference}")
     scale_deploy(bootstrap_data_reference)
@@ -350,7 +354,7 @@ def bootstrap_upload_data(
 
 
 def scale_deploy(deployment: str, replicas: bool = 0):
-    call(f"kubectl scale deploy {deployment} --replicas {replicas}", shell=True)
+    run_shell_command(f"kubectl scale deploy {deployment} --replicas {replicas}")
 
 
 def data_load_callback(option: str):

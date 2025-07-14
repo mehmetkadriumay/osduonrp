@@ -13,7 +13,6 @@ from pydantic import (
     FilePath,
     HttpUrl,
 )
-import json
 
 console = Console()
 error_console = Console(stderr=True, style="bold red")
@@ -153,7 +152,10 @@ async def helm_get_chart_async(
             raise typer.Abort()
 
     console.print(
-        chart.metadata.name, chart.metadata.version, chart.metadata.app_version, chart.ref,
+        chart.metadata.name,
+        chart.metadata.version,
+        chart.metadata.app_version,
+        chart.ref,
     )
     with console.status(f"Getting readme on chart {chart_ref}..."):
         try:
@@ -163,8 +165,8 @@ async def helm_get_chart_async(
             # raise typer.Exit(0)
             pass
         except CommandCancelledError as err:
-                error_console.print(err)
-                raise typer.Abort()
+            error_console.print(err)
+            raise typer.Abort()
     return chart
 
 
@@ -226,8 +228,8 @@ async def helm_install_or_upgrade_async(
                 dry_run=dry_run,
             )
         except CommandCancelledError as err:
-                error_console.print(err)
-                raise typer.Abort()
+            error_console.print(err)
+            raise typer.Abort()
 
     console.print(
         revision.release.name,
