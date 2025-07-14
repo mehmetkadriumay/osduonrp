@@ -48,3 +48,20 @@ def get_docker_info(output: str = "json"):
     Get Docker info
     """
     console.print_json(docker_info(outputformat=output))
+
+
+@diag_cli.command(rich_help_panel="Docker Diagnostic Commands")
+def purge():
+    """
+    Purge all containers, images, volumes and networks
+    """
+    typer.confirm("Are you sure you want to purge everything?", abort=True)
+    console.print("Purging all containers, images, volumes and networks...")
+    try:
+        subprocess.run(
+            ["docker", "system", "prune", "-a", "-f", "--volumes"], check=True
+        )
+        console.print("Purge completed successfully.")
+    except subprocess.CalledProcessError as err:
+        error_console.print(f"Error during purge: {err}")
+        raise typer.Exit(code=1)

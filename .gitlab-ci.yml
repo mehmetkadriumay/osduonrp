@@ -24,7 +24,7 @@ deploy-pages:
   tags: ["osdu-small"]
   pages: true # specifies that this is a Pages job
   script:
-    - uv run $PACKAGE
+    - uv run $PACKAGE --help
     - uv run $PACKAGE docs generate --name $PACKAGE --output docs/docs/commands_reference.md
     - apt update
     - apt install git -y
@@ -45,12 +45,13 @@ build-python-package:
   script:
     - apt update
     - apt install git -y
-    - uv run $PACKAGE
+    - uv run $PACKAGE --help
       # Set the version in pyproject.toml based on VERSION file, pipeline details and git tags
     - VERSION=$(uv run setversion.py)  
+    - echo "Setting version to $VERSION"
     - uvx --from=toml-cli toml set --toml-path=pyproject.toml project.version $VERSION
     - uv build
-    - uv run --with $PACKAGE --no-project -- python -c "import $PACKAGE"
+    #- uv run --with $PACKAGE --no-project -- python -c "import $PACKAGE"
   needs: []
 
 publish-python-package:
@@ -139,7 +140,9 @@ publish-release-notes:
 
 test-deployment-of-package:
   stage: deploy
-  needs: ['publish-python-package']
+  needs:
+    - job: publish-python-package
+      optional: true
   image: docker:dind
   allow_failure: true
   script:

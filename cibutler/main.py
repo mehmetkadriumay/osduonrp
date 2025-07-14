@@ -191,7 +191,7 @@ def configure(
     #    console.print(output)
 
 
-@cli.command(rich_help_panel="CI Commands", hidden=True)
+@diag_cli.command(rich_help_panel="Helm Diagnostic Commands")
 def helm_install(
     service_name: Annotated[str, typer.Option(help="OSDU service name")],
     name: Annotated[str, typer.Option(help="helm chart name")],
@@ -213,6 +213,9 @@ def helm_install(
         default="oci://community.opengroup.org:5555/osdu/platform/deployment-and-operations/infra-gcp-provisioning/gc-helm/osdu-gc-baremetal"
     ),
 ):
+    """
+    Helm install a service chart
+    """
     if force or Confirm.ask(
         f"Chart: {chart}\nName: {name}\nFile: {file}\nInstall?", default=True
     ):
@@ -225,27 +228,47 @@ def delete(
         bool, typer.Option("--force", help="No confirmation prompt")
     ] = False,
     profile: Annotated[str, typer.Option(hidden=True)] = None,
+    minikube: Annotated[bool, typer.Option("-m", hidden=True)] = False,
 ):
     """
     Uninstall/Delete CImpl :skull:
     """
-    context = cik8s.get_currentcontext()
-    if context and "minikube" in context:
-        if force or Confirm.ask(
-            f"Uninstall CImpl and delete Minikube deployment?",
-            default=True,
-        ):
-            if profile:
-                ciminikube.minikube_delete(profile=profile)
-            else:
-                ciminikube.minikube_delete()
-        else:
-            raise typer.Abort()
-    elif context:
-        uninstall(force=force)
+    if minikube:
+        delete_minikube(force=force, profile=profile)
     else:
-        error_console.print("Kubernetes context not set. Run 'use-context' first")
+        context = cik8s.get_currentcontext()
+        if context and "minikube" in context:
+            delete_minikube(force=force, profile=profile)
+        elif context:
+            uninstall(force=force)
+        else:
+            error_console.print("Kubernetes context not set. Run 'use-context' first")
+            raise typer.Abort()
+
+
+def delete_minikube(force=False, profile=None):
+    """
+    Delete CImpl minikube and all data
+    """
+    if force or ask_delete():
+        console.print("Deleting CImpl...")
+        if profile:
+            ciminikube.minikube_delete(profile=profile)
+        else:
+            ciminikube.minikube_delete()
+        console.print("CImpl deleted successfully.")
+    else:
         raise typer.Abort()
+
+
+def ask_delete():
+    """
+    Ask user to confirm deletion
+    """
+    return Confirm.ask(
+        "Are you sure you want to delete CImpl? This will remove all data and cannot be undone.",
+        default=True,
+    )
 
 
 @diag_cli.command(rich_help_panel="CImpl Diagnostic Commands")
