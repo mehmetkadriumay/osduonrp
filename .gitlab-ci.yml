@@ -61,7 +61,7 @@ publish-python-package:
   script:
     - apt update
     - apt install git -y
-    - uv run $PACKAGE
+    - uv run $PACKAGE --help
       # Set the version in pyproject.toml based on VERSION file, pipeline details and git tags
     - VERSION=$(uv run setversion.py)  
     - uvx --from=toml-cli toml set --toml-path=pyproject.toml project.version $VERSION
