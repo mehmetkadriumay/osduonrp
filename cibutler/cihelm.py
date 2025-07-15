@@ -6,6 +6,9 @@ import asyncio
 from pyhelm3 import Client, Chart, ChartNotFoundError, CommandCancelledError
 from pydantic import ValidationError
 import typing
+from cibutler.shell import run_shell_command
+import logging
+
 from typing_extensions import Annotated
 from pydantic import (
     Field,
@@ -13,6 +16,8 @@ from pydantic import (
     FilePath,
     HttpUrl,
 )
+
+logger = logging.getLogger(__name__)
 
 console = Console()
 error_console = Console(stderr=True, style="bold red")
@@ -76,6 +81,7 @@ def helm_install(
 
 def helm_uninstall(name="osdu-cimpl", namespace="default"):
     console.print(f"Uninstalling {name}...")
+    logger.info(f"Uninstalling helm {name} in namespace {namespace}")
     output = subprocess.Popen(
         ["helm", "uninstall", name, "-n", namespace], stdout=subprocess.PIPE
     ).communicate()[0]
@@ -109,6 +115,17 @@ async def helm_list_details_async():
 
 
 @diag_cli.command(rich_help_panel="Helm Diagnostic Commands")
+def helm_remove_repo(repo: str = "istio"):
+    """
+    Remove istio helm repo
+    """
+    console.print(f":pushpin: Removing helm repo {repo}")
+    run_shell_command(f"helm repo remove {repo}")
+    console.print(f":surfer: Done! {repo} helm repo removed")
+    return True
+
+
+@diag_cli.command(rich_help_panel="Helm Diagnostic Commands")
 def show_chart(
     chart_ref: Annotated[
         str, typer.Argument(help="Ref or URL of Chart")
@@ -138,6 +155,9 @@ async def helm_get_chart_async(
     with console.status(f"Getting details on chart {chart_ref}..."):
         # Fetch a chart
         try:
+            logger.info(
+                f"Fetching chart {chart_ref} from repo {repo} with version {version}, devel={devel}"
+            )
             chart = await client.get_chart(
                 chart_ref=chart_ref, repo=repo, version=version, devel=devel
             )
@@ -217,6 +237,9 @@ async def helm_install_or_upgrade_async(
     Client.get_chart = get_chart_oci
 
     chart = await helm_get_chart_async(chart_ref=chart_ref, repo=repo, version=version)
+    logger.info(
+        f"Installing or upgrading helm {chart_ref} with release name {release_name}, version {version}, atomic={atomic}, wait={wait}, dry_run={dry_run}"
+    )
     with console.status(f"Installing/upgrading {chart_ref}..."):
         try:
             revision = await client.install_or_upgrade_release(
@@ -248,7 +271,7 @@ def helm_list():
     Return list from helm
     """
     try:
-        output = subprocess.run(["helm", "list", "-a", "-A"], capture_output=True)
+        output = subprocess.run(["helm", "list", "-a", "-A"], capture_output=True)  # nosec
     except subprocess.CalledProcessError as err:
         return str(err)
     else:

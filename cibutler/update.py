@@ -6,6 +6,9 @@ from rich.panel import Panel
 import rich.box
 import time
 import importlib
+import logging
+
+logger = logging.getLogger(__name__)
 
 try:
     __version__ = importlib.metadata.version("mypackage")

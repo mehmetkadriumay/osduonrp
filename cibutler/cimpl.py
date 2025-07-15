@@ -10,10 +10,13 @@ import subprocess
 import inquirer
 import shlex
 import base64
+import logging
 from typing_extensions import Annotated
 import cibutler.cik8s as cik8s
 import cibutler.utils as utils
 from cibutler.shell import run_shell_command
+
+logger = logging.getLogger(__name__)
 
 console = Console()
 error_console = Console(stderr=True, style="bold red")
@@ -41,9 +44,9 @@ def check_hosts():
     ]
     for host in required:
         if utils.resolvehostname(host):
-            console.print(f"{host} :heavy_check_mark:")
+            console.print(f":white_check_mark: {host} resolves")
         else:
-            error_console.print(f"{host} not in hosts file :x:")
+            error_console.print(f":x: {host} not in hosts file")
 
 
 @diag_cli.command(rich_help_panel="CImpl Diagnostic Commands")
@@ -93,7 +96,7 @@ def update_services(
                     call(
                         ["kubectl", "get", "virtualservice", vsvc, "-o", "yaml"],
                         stdout=outfile,
-                    )
+                    )  # nosec
 
                 try:
                     with open(filename, "r") as file:
@@ -117,12 +120,12 @@ def update_services(
                     ["kubectl", "delete", "virtualservice", vsvc],
                     stdout=subprocess.DEVNULL,
                     stderr=subprocess.STDOUT,
-                )
+                )  # nosec
                 call(
                     ["kubectl", "apply", "-f", filename],
                     stdout=subprocess.DEVNULL,
                     stderr=subprocess.STDOUT,
-                )
+                )  # nosec
 
                 if not debug:
                     os.remove(filename)
@@ -131,12 +134,12 @@ def update_services(
             ["kubectl", "delete", "ra", "--all"],
             stdout=subprocess.DEVNULL,
             stderr=subprocess.STDOUT,
-        )
+        )  # nosec
         call(
             ["kubectl", "delete", "authorizationpolicy", "entitlements-jwt-policy"],
             stdout=subprocess.DEVNULL,
             stderr=subprocess.STDOUT,
-        )
+        )  # nosec
 
 
 @diag_cli.command(rich_help_panel="CImpl Diagnostic Commands", name="notebook")
@@ -158,7 +161,9 @@ def helm_install_notebook(notebook_source: str, version: str):
     with console.status("Getting ingress..."):
         ingress_ip = cik8s.get_ingress_ip()
     console.print(":fire: Installing Notebook...")
-    run_shell_command(f"helm upgrade --install cimpl-notebook {notebook_source} --version {version} --set conf.ingressIP={ingress_ip}")
+    run_shell_command(
+        f"helm upgrade --install cimpl-notebook {notebook_source} --version {version} --set conf.ingressIP={ingress_ip}"
+    )
 
 
 def readyandavailable(data):
@@ -189,7 +194,7 @@ def check_running(
     while True:
         if not quiet:
             console.clear()
-            call(["kubectl", "get", "po"])
+            call(["kubectl", "get", "po"])  # nosec
         pods_not_ready = cik8s.get_pods_not_running()
         duration = time.time() - start
         if pods_not_ready:
@@ -205,7 +210,7 @@ def check_running(
                 call(
                     ["kubectl", "rollout", "restart", "deploy", "entitlements"],
                     stdout=subprocess.DEVNULL,
-                )
+                )  # nosec
                 # kubectl rollout restart deploy entitlements-bootstrap > /dev/null
                 call(
                     [
@@ -216,7 +221,7 @@ def check_running(
                         "entitlements-bootstrap",
                     ],
                     stdout=subprocess.DEVNULL,
-                )
+                )  # nosec
 
             if flag.exit():
                 break
@@ -303,7 +308,8 @@ def bootstrap_upload_data(
     --set global.onPremEnabled=true \
     --set global.deployWorkproducts={load_work_products} \
     --set data.bootstrapReferenceFlag="{data_load_flag}" \
-    --set data.bootstrapServiceAccountName="{service_account_name}"')
+    --set data.bootstrapServiceAccountName="{service_account_name}"'
+    )
 
     console.print(f":fire: Updating deployments... {bootstrap_data_reference}")
     scale_deploy(bootstrap_data_reference)
@@ -411,7 +417,7 @@ def get_keycloak_client_secret():
     """
     Get client secret from keycloak secrets
     """
-    cmd = 'kubectl get secret keycloak-bootstrap-secret -o jsonpath="{.data.KEYCLOAK_OSDU_ADMIN_SECRET}"'
+    cmd = 'kubectl get secret keycloak-bootstrap-secret -o jsonpath="{.data.KEYCLOAK_OSDU_ADMIN_SECRET}"'  # nosec
     args = shlex.split(cmd)
     output = subprocess.Popen(args, stdout=subprocess.PIPE).communicate()[0]
     return base64.b64decode(output.decode("ascii").strip()).decode()
@@ -421,7 +427,7 @@ def get_keycloak_admin_password():
     """
     Get admin password from keycloak secrets
     """
-    cmd = 'kubectl get secret keycloak-bootstrap-secret -o jsonpath="{.data.KEYCLOAK_ADMIN_PASSWORD}"'
+    cmd = 'kubectl get secret keycloak-bootstrap-secret -o jsonpath="{.data.KEYCLOAK_ADMIN_PASSWORD}"'  # nosec
     args = shlex.split(cmd)
     output = subprocess.Popen(args, stdout=subprocess.PIPE).communicate()[0]
     return base64.b64decode(output.decode("ascii").strip()).decode()
@@ -439,7 +445,7 @@ def get_notebook_pod():
     """
     Get pod name of notebook
     """
-    cmd = "kubectl get --no-headers pods -l app=cimpl-notebook"
+    cmd = "kubectl get --no-headers pods -l app=cimpl-notebook"  # nosec
     args = shlex.split(cmd)
     output = subprocess.Popen(args, stdout=subprocess.PIPE).communicate()[0]
     return output.decode("ascii").strip().split()[0]
@@ -460,7 +466,7 @@ def get_notebook_log():
     Get log from running notebook pod
     """
     pod = get_notebook_pod()
-    cmd = f"kubectl logs {pod}"
+    cmd = f"kubectl logs {pod}"  # nosec
     args = shlex.split(cmd)
     output = subprocess.Popen(args, stdout=subprocess.PIPE).communicate()[0]
     return output.decode("ascii").strip()

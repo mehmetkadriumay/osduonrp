@@ -5,6 +5,9 @@ import typer
 import typer.core
 from click import Command, Group
 import webbrowser
+import logging
+
+logger = logging.getLogger(__name__)
 
 cli = typer.Typer()
 

@@ -4,8 +4,11 @@ from rich.console import Console
 import typer
 import platform
 from typing_extensions import Annotated
+import logging
 import cibutler.utils as utils
 import cibutler.cidocker as cidocker
+
+logger = logging.getLogger(__name__)
 
 console = Console()
 error_console = Console(stderr=True, style="bold red")
@@ -145,8 +148,7 @@ def minikube_start(
                 f"--kubernetes-version={kubernetes_version}",
                 f"--nodes={nodes}",
                 f"--profile {profile}",
-            ],
-            shell=False,
+            ]
         )
         call(
             [
@@ -158,8 +160,7 @@ def minikube_start(
                 "minikube",
                 "--profile",
                 profile,
-            ],
-            shell=False,
+            ]
         )
     else:
         console.print(
@@ -173,27 +174,25 @@ def minikube_start(
                 f"--kubernetes-version={kubernetes_version}",
                 f"--nodes={nodes}",
                 force_opt,
-            ],
-            shell=False,
+            ]
         )
-        call(
-            ["minikube", "kubectl", "--", "config", "use-context", "minikube"],
-            shell=False,
-        )
+        call(["minikube", "kubectl", "--", "config", "use-context", "minikube"])
 
 
 def minikube_delete(profile: str = None):
     if profile:
-        call(["minikube", "delete", "-p", profile], shell=False)
+        logger.info(f"Deleting minikube profile: {profile}")
+        call(["minikube", "delete", "-p", profile])
     else:
-        call(["minikube", "delete"], shell=False)
+        logger.info("Deleting minikube")
+        call(["minikube", "delete"])
 
 
 def minikube_status(profile: str = None):
     if profile:
-        call(["minikube", "status", "-p", profile], shell=False)
+        call(["minikube", "status", "-p", profile])
     else:
-        call(["minikube", "status"], shell=False)
+        call(["minikube", "status"])
 
 
 @cli.command(rich_help_panel="CI Commands")
@@ -203,7 +202,8 @@ def tunnel():
 
     Creates a route to services deployed with type LoadBalancer and sets their Ingress to their ClusterIP.
     """
-    call(["minikube", "tunnel", "--alsologtostderr"], shell=False)
+    logger.info("Starting minikube tunnel")
+    call(["minikube", "tunnel", "--alsologtostderr"])
 
 
 if __name__ == "__main__":

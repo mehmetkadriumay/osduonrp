@@ -3,6 +3,9 @@ import cibutler.utils as utils
 import pandas
 from pandas.core.groupby.groupby import DataError
 import typer
+import logging
+
+logger = logging.getLogger(__name__)
 
 console = Console()
 error_console = Console(stderr=True, style="bold red")
