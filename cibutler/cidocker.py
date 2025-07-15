@@ -1,6 +1,9 @@
 import subprocess
 from rich.console import Console
 import typer
+import logging
+
+logger = logging.getLogger(__name__)
 
 console = Console()
 error_console = Console(stderr=True, style="bold red")
@@ -37,6 +40,8 @@ def docker_info(outputformat):
             ["docker", "info", "--format", outputformat], capture_output=True
         )
     except subprocess.CalledProcessError as err:
+        return str(err)
+    except (IOError, OSError) as err:
         return str(err)
     else:
         return output.stdout.decode("ascii").strip()

@@ -6,6 +6,9 @@ from pick import pick
 from rich.console import Console
 from kubernetes import client, config
 from typing_extensions import Annotated
+import logging
+
+logger = logging.getLogger(__name__)
 
 # in future will need from kubernetes.client import configuration
 # and from kubernetes.client.rest import ApiException
@@ -209,7 +212,7 @@ def delete_all(namespace: str = "default"):
 
 def kubectl_get(opt="vs"):
     try:
-        output = subprocess.run(["kubectl", "get", opt], capture_output=True)
+        output = subprocess.run(["kubectl", "get", opt], capture_output=True)  # nosec
     except subprocess.CalledProcessError as err:
         return str(err)
     else:
@@ -228,7 +231,7 @@ def get_ingress_ip():
             "istio-ingress",
         ],
         stdout=subprocess.PIPE,
-    ).communicate()[0]
+    ).communicate()[0]  # nosec
     return output.decode("ascii").strip().split()[2]
 
 
@@ -241,14 +244,14 @@ def pods_not_running():
 
 
 def get_pods_not_running():
-    cmd = "kubectl get pods -o jsonpath='{range .items[?(@.status.containerStatuses[-1:].state.waiting)]}{.metadata.name}: {@.status.containerStatuses[*].state.waiting.reason}{\"\\n\"}{end}'"
+    cmd = "kubectl get pods -o jsonpath='{range .items[?(@.status.containerStatuses[-1:].state.waiting)]}{.metadata.name}: {@.status.containerStatuses[*].state.waiting.reason}{\"\\n\"}{end}'"  # nosec
     args = shlex.split(cmd)
     output = subprocess.Popen(args, stdout=subprocess.PIPE).communicate()[0]
     return output.decode("ascii").strip()
 
 
 def get_deployment_status(deployment):
-    cmd = f"kubectl get deploy {deployment} -o jsonpath='{{.status}}'"
+    cmd = f"kubectl get deploy {deployment} -o jsonpath='{{.status}}'"  # nosec
     args = shlex.split(cmd)
     output = subprocess.Popen(args, stdout=subprocess.PIPE).communicate()[0]
     data = output.decode("ascii").strip()
@@ -287,14 +290,25 @@ def get_currentcontext():
     # kubectl config view -o template --template='{{ index . "current-context" }}'
     output = subprocess.Popen(
         ["kubectl", "config", "current-context"], stdout=subprocess.PIPE
-    ).communicate()[0]
+    ).communicate()[0]  # nosec
     return output.decode("ascii").strip()
+
+
+def get_current_valid_context():
+    context = get_currentcontext()
+    if not context:
+        error_console.print(
+            "No current kubernetes context set. Try using 'use-context' command."
+        )
+        raise typer.Abort()
+    else:
+        return context
 
 
 def usecontext(context: str = "docker-desktop"):
     output = subprocess.Popen(
         ["kubectl", "config", "use-context", context], stdout=subprocess.PIPE
-    ).communicate()[0]
+    ).communicate()[0]  # nosec
     return output.decode("ascii").strip()
 
 

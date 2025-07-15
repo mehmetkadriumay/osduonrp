@@ -25,6 +25,9 @@ import cibutler.cimpl as cimpl
 import cibutler.conf as conf
 import cibutler.save as save
 import cibutler.utils as utils
+import logging
+
+logger = logging.getLogger(__name__)
 
 """
 This limit OSDU functionality is to help verify OSDU is install and working correctly.

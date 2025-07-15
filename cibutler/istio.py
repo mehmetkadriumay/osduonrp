@@ -1,8 +1,9 @@
-from subprocess import call
 from cibutler.shell import run_shell_command
 from rich.console import Console
 import cibutler.cihelm as cihelm
+import logging
 
+logger = logging.getLogger(__name__)
 console = Console()
 error_console = Console(stderr=True, style="bold red")
 
@@ -26,14 +27,16 @@ def install_istio(
     Install istio
     """
     console.print(f":pushpin: Adding helm repo {repo}")
-    run_shell_command (f"helm repo add istio {repo}")
-    run_shell_command("helm repo update")
+    run_shell_command(f"helm repo add istio {repo}")
+    run_shell_command("helm repo update")  # nosec
 
     run_shell_command(
         f"helm upgrade --install istio-base istio/base --create-namespace -n {namespace}",
     )
     run_shell_command(f"helm upgrade --install istiod istio/istiod -n {namespace}")
-    run_shell_command(f"helm upgrade --install istio-ingress istio/gateway -n {namespace} --set labels.istio=ingressgateway")
+    run_shell_command(
+        f"helm upgrade --install istio-ingress istio/gateway -n {namespace} --set labels.istio=ingressgateway"
+    )
 
     if check_istio():
         console.print(

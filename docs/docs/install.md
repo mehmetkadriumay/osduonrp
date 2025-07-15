@@ -2,17 +2,17 @@
 ## Requirements for using CI Butler and deploying CImpl locally
 
 !!! example "Support"
-    Currently CI Butler only supports **minikube with Docker** and deploying on **Kubernetes with Docker-Desktop** (built-in kubernetes).
+    Currently CI Butler only supports **minikube with Docker**, deploying on **Kubernetes with Docker-Desktop** (built-in kubernetes) and [MicroK8s](https://microk8s.io/) (Ubuntu only).
 
     - Additionally CIButler only supports a single deployment to a kubernetes cluster.
     - Multiple deployments to different minikubes or separated by namespaces are not supported.
     - Using both CImpl on minikube and CImpl on Kubernetes with Docker Desktop at the same time is not currently supported. However if you manage the istio/ingress it should work.
-    - Success has been reported that local install to microk8s on Ubuntu works, however this is officially not supported or tested. You'll likely have to adjust istio/ingress on your own.
+    - Success has been reported that local install to MicroK8s on Ubuntu works, however this is officially not supported or tested. You'll likely have to adjust istio/ingress on your own.
 
     However in future support could be added for:
 
     - Namespace separation (allowing multiple deployments),
-    - Deploying to other small local kubernetes (microk8s, kind, k3s, etc)
+    - Deploying to other small local kubernetes (kind, k3s, etc)
     - Other remote kubernetes deployments (even cloud based),
     - Minikube support for more than docker driver (i.e. QEMU, Hyperkit, Hyper-V, KVM, Parallels, Podman, VirtualBox, VMware Fusion/Workstation, etc.)
 
@@ -47,7 +47,7 @@ graph LR
   D ---->|No| F[Installed!];
 ```
 
-- Currently CI Butler only supports minikube with Docker and deploying to Docker-Desktop's built-in kubernetes.
+- Currently CI Butler only supports minikube with Docker, deploying to Docker-Desktop's built-in kubernetes and deploying to MicroK8s. [MicroK8s](https://microk8s.io/) support should be considered highly experimental and has only been tested with Ubuntu but probably should work on other operating systems.
 - Both are easy to use options and use the same basic commands to install, use and delete.
 - Using Kubernetes in Docker Desktop sometimes performs a little better since you have one less level of virtualization.
 
@@ -66,10 +66,12 @@ If you intend to deploy CImpl locally using minikube you'll need the following:
 1. and then [install CI Butler](./install.md#install-ci-butler-pre-release-from-osdu-gitlab-built-packages) of course :smile:
 1. [CI Butler check](./install.md#ci-butler-check-prerequisites)
 
-#### Deploy on Kubernetes with Docker Desktop
+#### Deploy on Kubernetes
 If you intend to deploy CImpl locally using kubernetes inside docker-desktop you'll need the following:
 
-1. Install [docker desktop](https://www.docker.com/products/docker-desktop/) and enable Kubernetes under Settings :simple-docker:
+1. Setup kubernetes.
+    - For example install [docker desktop](https://www.docker.com/products/docker-desktop/) and enable Kubernetes under Settings :simple-docker: 
+    - For MicroK8s install and get access to kubernetes context
 1. Install [helm](https://helm.sh/docs/intro/install/) :simple-helm:
 1. Install kubectl :simple-kubernetes: if not already included in the above (docker desktop normally includes it). CIButler attempts to be a pure python implementation but uses both APIs and `kubectl` to configure and deploy to kubernetes.
 1. Increase RAM in docker desktop to 24+ GB and restart docker

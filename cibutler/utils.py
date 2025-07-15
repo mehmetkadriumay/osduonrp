@@ -9,6 +9,9 @@ from enum import Enum
 import sys
 import os
 import socket
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 def getconf_nprocs_online():

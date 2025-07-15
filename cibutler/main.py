@@ -33,9 +33,22 @@ import cibutler.osdu as osdu
 import cibutler.cihelm as cihelm
 import cibutler.docs as docs
 import cibutler.update as update
+import cibutler.cloud as cloud
+import cibutler.tf as tf
+import logging
+from dotenv import load_dotenv
 
-# from kubernetes.client import configuration
-# from kubernetes.client.rest import ApiException
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s %(levelname)s %(module)s %(funcName)s %(lineno)d %(message)s",
+    filename="./cibutler.log",
+    filemode="a",
+    encoding="utf-8",
+)
+logger = logging.getLogger("cibutler")
+
+# loading variables from .env file
+load_dotenv()
 
 console = Console()
 error_console = Console(stderr=True, style="bold red")
@@ -64,6 +77,8 @@ diag_cli.registered_commands += cihelm.diag_cli.registered_commands
 diag_cli.registered_commands += cik8s.diag_cli.registered_commands
 diag_cli.registered_commands += ciminikube.diag_cli.registered_commands
 diag_cli.registered_commands += cidocker.diag_cli.registered_commands
+diag_cli.registered_commands += cloud.diag_cli.registered_commands
+diag_cli.registered_commands += tf.diag_cli.registered_commands
 
 cli.add_typer(
     diag_cli,
@@ -96,14 +111,17 @@ def prompt(ask, password=True, default=None, length=8):
     return value
 
 
-@diag_cli.command(rich_help_panel="CImpl Diagnostic Commands", hidden=True)
+@diag_cli.command(rich_help_panel="CImpl Diagnostic Commands")
 def configure(
     default_random_password: bool = typer.Option(
-        False, "--random", help="Use random passwords"
+        True, "--random", help="Use random passwords"
     ),
+    interactive: bool = typer.Option(True, "--prompt", help="Prompt for values"),
 ):
-    filename = "custom-values.yaml"
-    url = "https://community.opengroup.org/osdu/platform/deployment-and-operations/infra-gcp-provisioning/-/raw/master/examples/simple_osdu_docker_desktop/custom-values.yaml"
+    """Configure CImpl custom values file  :wrench:"""
+    filename = "values.yaml"
+    # url = "https://community.opengroup.org/osdu/platform/deployment-and-operations/infra-gcp-provisioning/-/raw/master/examples/simple_osdu_docker_desktop/custom-values.yaml"
+    url = "https://community.opengroup.org/osdu/platform/deployment-and-operations/base-containers-cimpl/osdu-cimpl-stack/-/raw/main/helm/values.yaml"
 
     if os.path.isfile(filename):
         console.print(f"{filename} exists")
@@ -114,71 +132,143 @@ def configure(
         error_console.print(f"Unable to read {filename}")
         raise typer.Exit(1)
 
-    if default_random_password:
-        minio_password = utils.random_password()
-        keycloak_admin_password = utils.random_password()
-        postgresql_password = utils.random_password()
-        airflow_externaldb_password = utils.random_password()
-        airflow_password = utils.random_password()
-        elasticsearch_password = utils.random_password()
-        rabbitmq_password = utils.random_password()
-    else:
-        minio_password = data["minio"]["auth"]["rootPassword"]
-        keycloak_admin_password = data["keycloak"]["auth"]["adminPassword"]
-        postgresql_password = data["postgresql"]["global"]["postgresql"]["auth"][
-            "postgresPassword"
-        ]
-        airflow_externaldb_password = data["airflow"]["externalDatabase"]["password"]
-        airflow_password = data["airflow"]["auth"]["password"]
-        elasticsearch_password = data["elasticsearch"]["security"]["elasticPassword"]
-        rabbitmq_password = data["rabbitmq"]["auth"]["password"]
-    domain = data["global"]["domain"]
-    limits_enabled = str(data["global"]["limitsEnabled"]).lower()
+    try:
+        if default_random_password:
+            minio_password = utils.random_password()
+            keycloak_admin_password = utils.random_password()
+            postgresql_password = utils.random_password()
+            airflow_externaldb_password = utils.random_password()
+            airflow_password = utils.random_password()
+            elasticsearch_password = utils.random_password()
+            rabbitmq_password = utils.random_password()
+        else:
+            minio_password = data["minio"]["auth"]["rootPassword"]
+            # keycloak_admin_password = data["keycloak"]["auth"]["adminPassword"]
+            postgresql_password = data["postgresql"]["global"]["postgresql"]["auth"][
+                "postgresPassword"
+            ]
+            airflow_externaldb_password = data["airflow"]["externalDatabase"][
+                "password"
+            ]
+            airflow_password = data["airflow"]["auth"]["password"]
+            elasticsearch_password = data["elasticsearch"]["security"][
+                "elasticPassword"
+            ]
+            # rabbitmq_password = data["rabbitmq"]["auth"]["password"]
+        domain = data["common-infra-bootstrap"]["global"]["domain"]
+        # limits_enabled = str(data["global"]["limitsEnabled"]).lower()
+    except KeyError as e:
+        error_console.print(f"Key {e} not found in {filename}.")
+        raise typer.Exit(1)
 
     useInternalServerUrl = "true"
     hide = True
     domain = Prompt.ask("Domain", default=domain)
 
-    limits_enabled = Prompt.ask(
-        "limitsEnabled", choices=["true", "false"], default=limits_enabled
-    )
-    keycloak_admin_password = prompt(
-        "Keycloak Password", password=hide, default=keycloak_admin_password
-    )
-    minio_password = prompt("Minio Password", password=hide, default=minio_password)
-    postgresql_password = prompt(
-        "Postgresql Password", password=hide, default=postgresql_password
-    )
-    airflow_externaldb_password = prompt(
-        "Airflow ExternalDB Password",
-        password=hide,
-        default=airflow_externaldb_password,
-    )
-    airflow_password = prompt(
-        "Airflow Password", password=hide, default=airflow_password
-    )
-    elasticsearch_password = prompt(
-        "ElasticSearch Password", password=hide, default=elasticsearch_password
-    )
-    rabbitmq_password = prompt(
-        "RabbitMQ Password", password=hide, default=rabbitmq_password
-    )
-    use_internal_server_url = Prompt.ask(
-        "useInternalServerUrl", choices=["true", "false"], default=useInternalServerUrl
-    )
+    # limits_enabled = Prompt.ask(
+    #    "limitsEnabled", choices=["true", "false"], default=limits_enabled
+    # )
+    # keycloak_admin_password = prompt(
+    #    "Keycloak Password", password=hide, default=keycloak_admin_password
+    # )
+    if interactive:
+        minio_password = prompt("Minio Password", password=hide, default=minio_password)
+        postgresql_password = prompt(
+            "Postgresql Password", password=hide, default=postgresql_password
+        )
+        airflow_externaldb_password = prompt(
+            "Airflow ExternalDB Password",
+            password=hide,
+            default=airflow_externaldb_password,
+        )
+        airflow_password = prompt(
+            "Airflow Password", password=hide, default=airflow_password
+        )
+        elasticsearch_password = prompt(
+            "ElasticSearch Password", password=hide, default=elasticsearch_password
+        )
+        rabbitmq_password = prompt(
+            "RabbitMQ Password", password=hide, default=rabbitmq_password
+        )
+        use_internal_server_url = Prompt.ask(
+            "useInternalServerUrl",
+            choices=["true", "false"],
+            default=useInternalServerUrl,
+        )
 
-    data["global"]["domain"] = domain
-    data["global"]["limitsEnabled"] = bool(limits_enabled)
-    data["minio"]["auth"]["rootPassword"] = minio_password
-    data["minio"]["useInternalServerUrl"] = bool(use_internal_server_url)
-    data["keycloak"]["auth"]["adminPassword"] = keycloak_admin_password
-    data["postgresql"]["global"]["postgresql"]["auth"][
-        "postgresPassword"
-    ] = postgresql_password
-    data["airflow"]["externalDatabase"]["password"] = airflow_externaldb_password
-    data["airflow"]["auth"]["password"] = airflow_password
-    data["elasticsearch"]["security"]["elasticPassword"] = elasticsearch_password
-    data["rabbitmq"]["auth"]["password"] = rabbitmq_password
+    try:
+        # Airflow
+        data["airflow"]["externalDatabase"]["password"] = airflow_externaldb_password
+        data["airflow"]["auth"]["password"] = airflow_password
+        data["airflow"]["airflow-infra-bootstrap"]["domain"] = domain
+        data["common-infra-bootstrap"]["global"]["domain"] = domain
+        data["common-infra-bootstrap"]["airflow"]["auth"]["password"] = airflow_password
+        data["common-infra-bootstrap"]["airflow"]["externalDatabase"][
+            "password"
+        ] = airflow_password
+
+        # Elasticseach
+        data["elasticsearch"]["security"]["elasticPassword"] = elasticsearch_password
+        data["elasticsearch"]["elastic-infra-bootstrap"]["global"]["domain"] = domain
+        data["elasticsearch"]["elastic-infra-bootstrap"]["elastic_bootstrap"][
+            "elasticPassword"
+        ] = elasticsearch_password
+
+        # Minio
+        # data["global"]["limitsEnabled"] = bool(limits_enabled)
+        data["minio"]["auth"]["rootPassword"] = minio_password
+        data["minio"]["minio-infra-bootstrap"]["global"]["domain"] = domain
+        data["minio"]["minio-infra-bootstrap"]["minio"]["auth"][
+            "rootPassword"
+        ] = minio_password
+        # data["minio"]["useInternalServerUrl"] = bool(use_internal_server_url)
+        # data["keycloak"]["auth"]["adminPassword"] = keycloak_admin_password
+
+        # postgresql
+        data["postgresql"]["global"]["postgresql"]["auth"][
+            "postgresPassword"
+        ] = postgresql_password
+        data["postgresql"]["postgres-infra-bootstrap"]["global"]["domain"] = domain
+        data["postgresql"]["postgres-infra-bootstrap"]["postgresql"]["global"][
+            "postgresql"
+        ]["auth"]["postgresPassword"] = postgresql_password
+
+        # common-infra-bootstrap
+        data["common-infra-bootstrap"]["global"]["domain"] = domain
+        data["common-infra-bootstrap"]["airflow"]["auth"]["password"] = airflow_password
+        data["common-infra-bootstrap"]["airflow"]["externalDatabase"][
+            "password"
+        ] = airflow_externaldb_password
+
+        # cimpl-bootstrap-rabbitmq
+        data["cimpl-bootstrap-rabbitmq"]["rabbitmq"]["auth"][
+            "password"
+        ] = rabbitmq_password
+
+        # OSDU Services values
+        data["core-plus-crs-catalog-deploy"]["global"]["domain"] = domain
+        data["core-plus-crs-conversion-deploy"]["global"]["domain"] = domain
+        data["core-plus-dataset-deploy"]["global"]["domain"] = domain
+        data["core-plus-entitlements-deploy"]["global"]["domain"] = domain
+        data["core-plus-file-deploy"]["global"]["domain"] = domain
+        data["core-plus-indexer-deploy"]["global"]["domain"] = domain
+        data["core-plus-legal-deploy"]["global"]["domain"] = domain
+        data["core-plus-notification-deploy"]["global"]["domain"] = domain
+        data["core-plus-partition-deploy"]["global"]["domain"] = domain
+        data["core-plus-policy-deploy"]["global"]["domain"] = domain
+        data["core-plus-register-deploy"]["global"]["domain"] = domain
+        data["core-plus-schema-deploy"]["global"]["domain"] = domain
+        data["core-plus-search-deploy"]["global"]["domain"] = domain
+        data["core-plus-storage-deploy"]["global"]["domain"] = domain
+        data["core-plus-unit-deploy"]["global"]["domain"] = domain
+        data["core-plus-wellbore-deploy"]["global"]["domain"] = domain
+        data["core-plus-wellbore-worker-deploy"]["global"]["domain"] = domain
+        data["core-plus-workflow-deploy"]["global"]["domain"] = domain
+        data["core-plus-secret-deploy"]["global"]["domain"] = domain
+
+    except KeyError as e:
+        error_console.print(f"Key {e} not found in processing {filename}.")
+        raise typer.Exit(1)
 
     if Confirm.ask("Save?", default=True):
         with open(filename, "w") as file:
@@ -253,8 +343,10 @@ def delete_minikube(force=False, profile=None):
     if force or ask_delete():
         console.print("Deleting CImpl...")
         if profile:
+            logger.info(f"Deleting minikube with profile: {profile}")
             ciminikube.minikube_delete(profile=profile)
         else:
+            logger.info("Deleting minikube")
             ciminikube.minikube_delete()
         console.print("CImpl deleted successfully.")
     else:
@@ -444,8 +536,8 @@ def install(
 
     if (
         minikube
-        or "docker-desktop" in cik8s.get_currentcontext()
-        or "minikube" in cik8s.get_currentcontext()
+        or "docker-desktop" in cik8s.get_current_valid_context()
+        or "minikube" in cik8s.get_current_valid_context()
     ):
         """
         If using minikube or docker-desktop as target then let's use
@@ -597,9 +689,9 @@ def preflight_checks(skip_docker_daemon=False):
         for cmd in external_utils:
             cmd_path = shutil.which(cmd)
             if cmd_path:
-                console.print(f"{cmd} installed :heavy_check_mark:")
+                console.print(f":white_check_mark: {cmd} installed")
             else:
-                error_console.print(f"{cmd} installed :x:")
+                error_console.print(f":x: {cmd} not installed or not found")
 
         if skip_docker_daemon:
             return
@@ -607,21 +699,21 @@ def preflight_checks(skip_docker_daemon=False):
         # nprocs = utils.getconf_nprocs_online()
         nprocs = utils.cpu_count()
         if nprocs and nprocs >= MIN_CPU_CORES:
-            console.print(f"CPU Cores online: {nprocs} :thumbs_up:")
+            console.print(f":white_check_mark: CPU Cores online: {nprocs} :thumbs_up:")
         else:
-            error_console.print(f"Not enough CPU cores detected {nprocs} :x:")
+            error_console.print(f":x: Not enough CPU cores detected {nprocs}")
 
         ncpu = cidocker.docker_info_ncpu()
         if ncpu == 0:
             error_console.print(
-                "Error getting NCPU setting. Is the docker daemon running?"
+                ":x: Error getting NCPU setting. Is the docker daemon running?"
             )
             raise typer.Exit(2)
         elif ncpu >= MIN_CPU_CORES:
-            console.print(f"Docker CPU Limit: {ncpu} :thumbs_up:")
+            console.print(f":white_check_mark: Docker CPU Limit: {ncpu} :thumbs_up:")
         else:
             error_console.print(
-                f"Docker CPU Limit too low. Not enough CPU given to docker {ncpu} :x:"
+                f":x: Docker CPU Limit too low. Not enough CPU given to docker {ncpu}"
             )
             console.print(
                 f"Please increase to a min. {MIN_CPU_CORES}.\nIf you recently changed this value try restarting docker."
@@ -631,34 +723,34 @@ def preflight_checks(skip_docker_daemon=False):
         ram = cidocker.docker_info_memtotal()
         if ram == 0:
             error_console.print(
-                "Error getting RAM setting. Is the docker daemon running?"
+                ":x: Error getting RAM setting. Is the docker daemon running?"
             )
             raise typer.Exit(1)
         mem_gb = ram / 1024 / 1024 / 1024
         if total_heap_required > mem_gb:
             error_console.print(
-                f"Not enough RAM configured for docker. Found {memory} but {total_heap_required} GiB recommended"
+                f":x: Not enough RAM configured for docker. Found {memory} but {total_heap_required} GiB recommended"
             )
         else:
             console.print(
-                f"Docker Reporting enough RAM for install {memory} :thumbs_up:"
+                f":white_check_mark: Docker Reporting enough RAM for install {memory} :thumbs_up:"
             )
 
 
 def k8s_checks():
     info = cik8s.cluster_info()
     if info.count("running") >= 2:
-        console.print("Kubernetes cluster running :thumbs_up:")
+        console.print(":white_check_mark: Kubernetes cluster running :thumbs_up:")
     else:
-        error_console.print("Kubernetes may not be running:")
+        error_console.print(":x: Kubernetes may not be running:")
         print(info)
         raise typer.Exit(1)
 
     cores = cik8s.kube_allocatable_cpu()
     if cores >= 4:
-        console.print(f"Kubernetes CPU cores {cores} :thumbs_up:")
+        console.print(f":white_check_mark: Kubernetes CPU cores {cores} :thumbs_up:")
     else:
-        error_console.print(f"Not enough CPU {cores} given to docker/kubernetes")
+        error_console.print(f":x: Not enough CPU {cores} given to docker/kubernetes")
         raise typer.Exit(1)
 
     k8s_memory = cik8s.kube_allocatable_memory()
@@ -666,16 +758,20 @@ def k8s_checks():
         ki = int(k8s_memory.replace("Ki", ""))
         gb = ki / 1024 / 1024
         if gb >= 23.2:
-            console.print(f"Allocatable RAM {gb:.2f} GiB :thumbs_up:")
+            console.print(
+                f":white_check_mark: Allocatable RAM {gb:.2f} GiB :thumbs_up:"
+            )
         else:
-            error_console.print(f"Not enough Allocatable RAM for {gb:.2f} kubernetes")
+            error_console.print(
+                f":x: Not enough Allocatable RAM for {gb:.2f} kubernetes"
+            )
         raise typer.Exit(1)
 
     num_ready = int(cik8s.kube_istio_ready().split()[0])
     if num_ready >= 1:
-        console.print("istio ready :thumbs_up:")
+        console.print(":white_check_mark: istio ready :thumbs_up:")
     else:
-        error_console.print("istio not ready")
+        error_console.print(":x: istio not ready")
         raise typer.Exit(1)
 
 

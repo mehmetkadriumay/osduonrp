@@ -14,6 +14,9 @@ from typing import Optional
 from getpass import getpass
 import cibutler.cimpl as cimpl
 import cibutler.utils as utils
+import logging
+
+logger = logging.getLogger(__name__)
 
 console = Console()
 error_console = Console(stderr=True, style="bold red")
