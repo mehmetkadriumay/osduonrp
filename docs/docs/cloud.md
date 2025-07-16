@@ -5,7 +5,7 @@ Google was nice enough to temporarily donate some compute time for testing of CI
 ## Setup 
 Install and configure [gcloud cli](https://cloud.google.com/sdk/docs/install).
 
-While optional I highly recommend creating a .env file but you can always provide those details on command-line
+While optional I highly recommend creating a `.env.cibutler` file in your home directory, but you can always provide those details on command-line
 
 ```
 HOST = 
