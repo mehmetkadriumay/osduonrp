@@ -103,6 +103,9 @@ class OutputType(str, Enum):
     none = "none"
 
 
+"""
+Needs a rewrite for better security and error handling.
+
 def open_file(filename):
     try:
         if sys.platform == "win32":
@@ -112,6 +115,7 @@ def open_file(filename):
             subprocess.call([opener, filename])
     except FileNotFoundError:
         print(f"Unable to open: {filename}")
+"""
 
 
 def resolvehostname(hostname):

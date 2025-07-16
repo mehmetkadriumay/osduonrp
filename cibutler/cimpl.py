@@ -61,19 +61,24 @@ def cpu():
 
 
 def install_cimpl(
-    version: str, source: str, chart: str = "osdu-cimpl", arm: bool = False
-):
+    version: str, source: str, chart: str = "osdu-cimpl"):
     """
-    Install CImpl
+    Install CImpl OCI registry or local source
     """
-    if arm:
-        console.print(":pushpin: Installing CImpl. Expecting target system is ARM")
-        source = f"{source}-arm"
-    else:
-        console.print(":pushpin: Installing CImpl. Expecting target system is x86")
+    password=utils.random_password()
 
-    console.print(f":pushpin: Installing version {version} from {source}...")
-    run_shell_command(f"helm upgrade --install {chart} {source} --version {version}")
+    console.print(f":pushpin: Requested install version {version} from {source}...")
+    if source.startswith("oci://"):
+        # OCI registry source
+        logger.info(f"Using OCI registry source {source} for CImpl {version}") 
+        console.print(f":fire: Using OCI registry source {source} for CImpl {version}")
+        run_shell_command(f"helm upgrade --install --set rabbitmq.auth.password={password} {chart} {source} --version {version}")
+    else:
+        # Local source
+        logger.info(f"Using local source {source} for CImpl")
+        console.print(f":fire: Using local source {source} for CImpl")
+        run_shell_command(f"helm upgrade --install {chart} {source}")
+    
     time.sleep(1)
 
 
