@@ -39,10 +39,11 @@ import cibutler.tf as tf
 import logging
 from dotenv import load_dotenv
 
+home = str(Path.home())
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s %(levelname)s %(module)s %(funcName)s %(lineno)d %(message)s",
-    filename="./cibutler.log",
+    filename=f"{home}/cibutler.log",
     filemode="a",
     encoding="utf-8",
 )
@@ -457,8 +458,8 @@ def envfile(
 
 @cli.command(rich_help_panel="CI Commands")
 def install(
-    version: Annotated[str, typer.Option(help="CImpl version")] = None,
-    source: Annotated[ str, typer.Option(help="CImpl source") ] = None,
+    version: Annotated[str, typer.Option(help="CImpl version", envvar="HELM_VERSION")] = None,
+    source: Annotated[ str, typer.Option(help="CImpl source", envvar="HELM_SOURCE")] = None,
     notebook_source: Annotated[
         str, typer.Option(help="Notebook source")
     ] = "oci://us-central1-docker.pkg.dev/or2-msq-gnrg-osdu-mp-t1iylu/cimpl/helm/cimpl-notebook",
