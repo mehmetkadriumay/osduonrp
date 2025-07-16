@@ -51,7 +51,7 @@ def select_version():
     selected_option = str(answers["helm_version"]).split(" ")[0]
 
     console.print(f"You selected: {selected_option}")
-    logger.info(f"{versions[answers["helm_version"]]} and version {selected_option} selected for installation")
+    logger.info(f"{versions[answers['helm_version']]} and version {selected_option} selected for installation")
 
     # return the selected version and its corresponding source
     return selected_option, versions[answers["helm_version"]]
