@@ -136,6 +136,10 @@ To install CI Butler we recommend using pipx:
 pipx install cibutler --index-url https://community.opengroup.org/api/v4/projects/1558/packages/pypi/simple --pip-args="--extra-index-url=https://community.opengroup.org/api/v4/projects/148/packages/pypi/simple"
 ```
 
+## Logfile
+
+When running cibutler CI Butler will try to log to `cibutler.log` in your home directory. You should have write permission to this directory/file or CI Butler may fail.
+
 ## CI Butler Check Prerequisites
 
 This is required if you are Deploying CImpl locally on minikube
