@@ -50,7 +50,7 @@ logging.basicConfig(
 logger = logging.getLogger("cibutler")
 
 # loading variables from .env file
-load_dotenv()
+load_dotenv(Path.home().joinpath('.env.cibutler'))
 
 console = Console()
 error_console = Console(stderr=True, style="bold red")
@@ -596,7 +596,8 @@ def install(
         ciminikube.minikube_start(force=force)
 
     if not check_istio() and not install_istio():
-        error_console.print("Installation has failed")
+        logger.error("Installation of istio has failed")
+        error_console.print("Installation istio has failed")
         raise typer.Exit(1)
 
     install_cimpl(version=version, source=source)
@@ -605,11 +606,15 @@ def install(
 
     if not check_running(entitlement_workaround=True, quiet=quiet):
         error_console.print("Installation has failed")
+        logger.error("Installation has failed")
         raise typer.Exit(1)
 
     duration = time.time() - start
     duration_str = utils.convert_time(duration)
     console.print(
+        f"CImpl installed in {duration_str}. Ready to install Notebook and Upload data"
+    )
+    logger.info(
         f"CImpl installed in {duration_str}. Ready to install Notebook and Upload data"
     )
 
@@ -624,6 +629,7 @@ def install(
     )
     duration = time.time() - start
     duration_str = utils.convert_time(duration)
+    logger.info(f"Install command completed in {duration_str}")
     console.print(f"Install command completed in {duration_str}")
 
 

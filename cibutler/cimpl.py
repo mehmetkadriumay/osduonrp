@@ -305,6 +305,7 @@ def bootstrap_upload_data(
     Bootstrap data upload process into OSDU
     """
     console.print(f":fire: Starting uploading data: {data_load_flag}... {version}")
+    logger.info(f"Starting uploading data: {data_load_flag}... {version}")
 
     run_shell_command(
         f'helm upgrade --install bootstrap-data-deploy {source}\
@@ -317,6 +318,7 @@ def bootstrap_upload_data(
     )
 
     console.print(f":fire: Updating deployments... {bootstrap_data_reference}")
+    logger.info(f"Updating deployments... {bootstrap_data_reference}")
     scale_deploy(bootstrap_data_reference)
     # scale_deploy("bootstrap-data-workproduct")
 
@@ -330,6 +332,7 @@ def bootstrap_upload_data(
                 time.sleep(sleep)
 
     console.print(":fire: Starting data load process...")
+    logger.info("Starting data load process...")
     scale_deploy(bootstrap_data_reference, replicas=1)
     start = time.time()
     if wait_for_complete:
@@ -337,6 +340,7 @@ def bootstrap_upload_data(
             status = cik8s.get_deployment_status(bootstrap_data_reference)
             if "readyReplicas" in status and status["readyReplicas"]:
                 console.print(":thumbs_up: reference data bootstrapped.")
+                logger.info("reference data bootstrapped.")
                 break
             else:
                 duration = time.time() - start
@@ -349,6 +353,9 @@ def bootstrap_upload_data(
         duration = time.time() - start
         duration_str = utils.convert_time(duration)
         console.print(
+            f"Data loading process ({data_load_flag}) completed. {duration_str}"
+        )
+        logger.info(
             f"Data loading process ({data_load_flag}) completed. {duration_str}"
         )
     else:
