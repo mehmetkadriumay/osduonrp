@@ -30,6 +30,7 @@ from cibutler.cimpl import (
     data_load_callback,
 )
 import cibutler.osdu as osdu
+import cibutler.releases as releases
 import cibutler.cihelm as cihelm
 import cibutler.docs as docs
 import cibutler.update as update
@@ -456,10 +457,8 @@ def envfile(
 
 @cli.command(rich_help_panel="CI Commands")
 def install(
-    version: Annotated[str, typer.Option(help="CImpl version")] = "0.27.0-local",
-    source: Annotated[
-        str, typer.Option(help="CImpl source")
-    ] = "oci://us-central1-docker.pkg.dev/or2-msq-gnrg-osdu-mp-t1iylu/cimpl/helm/osdu-cimpl",
+    version: Annotated[str, typer.Option(help="CImpl version")] = None,
+    source: Annotated[ str, typer.Option(help="CImpl source") ] = None,
     notebook_source: Annotated[
         str, typer.Option(help="Notebook source")
     ] = "oci://us-central1-docker.pkg.dev/or2-msq-gnrg-osdu-mp-t1iylu/cimpl/helm/cimpl-notebook",
@@ -516,17 +515,12 @@ def install(
             help="Deploy Minikube (in Docker) or existing kubernetes cluster",
         ),
     ] = True,
-    arm: Annotated[
-        bool,
-        typer.Option(
-            "--arm/--x86",
-            help="Set CPU Arch ARM/x86 of Kubernetes Nodes. For use with -k",
-        ),
-    ] = False,
     debug: Annotated[bool, typer.Option(help="Debug", hidden=True)] = False,
 ):
     """
     Install CImpli using minikube or kubernetes cluster, install notebook and data load. :rocket:
+
+    Source can be an OCI registry or local path.
 
     data-load-flag options:
     'dd-reference', 'partial-dd-reference', 'tno-volve-reference', 'all', 'skip'
@@ -534,22 +528,61 @@ def install(
 
     """
 
-    if (
-        minikube
-        or "docker-desktop" in cik8s.get_current_valid_context()
-        or "minikube" in cik8s.get_current_valid_context()
-    ):
-        """
-        If using minikube or docker-desktop as target then let's use
-        arch of machine to give hints as to what container build would run
-        best for CImpl
-        """
-        arch = platform.machine()
-        if arch == "arm64" or arch == "aarch64":
-            console.print(":sparkles: Running on ARM architecture")
-            arm = True
-        else:
-            console.print(":sparkles: Running on x86 architecture")
+    #if (
+    #    minikube
+    #    or "docker-desktop" in cik8s.get_current_valid_context()
+    #    or "minikube" in cik8s.get_current_valid_context()
+    #):
+    #    """
+    #    If using minikube or docker-desktop as target then let's use
+    #    arch of machine to give hints as to what container build would run
+    #    best for CImpl. Otherwise assume that the kubernetes cluster
+    #    is using X86 architecture.
+    #    """
+    #    arch = platform.machine()
+    #    if arch == "arm64" or arch == "aarch64":
+    #        console.print(":sparkles: Running on ARM architecture")
+    #        arm = True
+    #    else:
+    #        console.print(":sparkles: Running on x86 architecture")
+
+    if not version and not source:
+        if force:
+            error_console.print("No version or source provided. Exiting.")
+            raise typer.Exit(1)
+        # If no version or source is provided, prompt user to select a version
+        version, source = releases.select_version()
+
+    if not version or not source:
+        error_console.print("No version or source selected. Exiting.")
+        raise typer.Exit(1)
+
+    if not data_load_flag:
+        if force:
+            error_console.print("No data load option provided. Exiting.")
+            raise typer.Exit(1)
+        data_load_flag = get_data_load_option()
+
+    if not force:
+        console.print("The following options will be used for installation:")
+        console.print(f"Installing CImpl version: {version} from: {source}\nwith data load option: {data_load_flag}")
+        console.print(f"Notebook source: {notebook_source} version: {notebook_version}")
+        console.print(f"Data source: {data_source} version: {data_version}")
+        console.print(f"Minikube: {minikube}, Kubernetes:{not minikube}")
+        console.print(f"Percent Memory: {percent_memory}, Max CPU: {max_cpu}, Max Memory: {max_memory}, Disk Size: {disk_size}GB")
+        typer.confirm("Proceed with install?", abort=True)
+
+    logger.info(
+        f"Installing CImpl version: {version} from: {source} with data load option: {data_load_flag}"
+    )
+    logger.info(
+        f"Notebook source: {notebook_source} version: {notebook_version}"
+    )
+    logger.info(f"Data source: {data_source} version: {data_version}")  
+    logger.info(f"Minikube: {minikube}, Kubernetes:{not minikube}")
+    logger.info(
+        f"Percent Memory: {percent_memory}, Max CPU: {max_cpu}, Max Memory: {max_memory}, Disk Size: {disk_size}GB"
+    )
 
     start = time.time()
     if minikube:
@@ -561,24 +594,14 @@ def install(
         )
         ciminikube.minikube_start(force=force)
 
-    if debug:
-        input("Continue with istio?")
-
     if not check_istio() and not install_istio():
         error_console.print("Installation has failed")
         raise typer.Exit(1)
 
-    if debug:
-        input("Continue with install cimpl?")
+    install_cimpl(version=version, source=source)
 
-    install_cimpl(version=version, source=source, arm=arm)
-
-    if debug:
-        input("Continue with update services?")
     update_services(debug=debug)
 
-    if debug:
-        input("Continue with check running?")
     if not check_running(entitlement_workaround=True, quiet=quiet):
         error_console.print("Installation has failed")
         raise typer.Exit(1)
@@ -589,8 +612,6 @@ def install(
         f"CImpl installed in {duration_str}. Ready to install Notebook and Upload data"
     )
 
-    if debug:
-        input("Continue with check running?")
     if install_notebook:
         helm_install_notebook(notebook_source=notebook_source, version=notebook_version)
 
