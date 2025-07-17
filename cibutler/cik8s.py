@@ -201,7 +201,7 @@ def cluster_info():
 def delete_item(name, grace_period: int = 1):
     console.print(f"Deleting {name}...")
     output = subprocess.Popen(
-        ["kubectl", "delete", name, "--all", f"--grade-period={grace_period}"],
+        ["kubectl", "delete", name, "--all", f"--grace-period={grace_period}"],
         stdout=subprocess.PIPE,
     ).communicate()[0]
     return output.decode("ascii").strip()
