@@ -60,8 +60,8 @@ def ssh(
     """
     result = Connection(host).run(command, hide=hide)
     if result.ok:
-        console.print(f"Connected to {host}")
-        console.print(f"Remote: {result.stdout.strip()}")
+        console.log(f"Connected to {host}")
+        console.log(f"Remote: {result.stdout.strip()}")
         logger.info(f"Command: {command} output: {result.stdout.strip()}")
         return result.stdout.strip()
     else:
@@ -103,10 +103,20 @@ def gcloud_instance_create(
     gb: Annotated[
         int, typer.Option("--ram", help="Instance GB RAM", envvar="RAM")
     ] = 36,
+    diskgb: Annotated[int, typer.Option("--disk", help="Disk GB", envvar="DISK")] = 132,
+    image: Annotated[
+        str, typer.Option(help="Image Name", envvar="IMAGE")
+    ] = "projects/ubuntu-os-cloud/global/images/ubuntu-minimal-2504-plucky-amd64-v20250708",
 ):
     """
-    Create a GCP VM with Ubuntu
+    Create a GCP VM, by default Ubuntu
+
+    Optionally you can specify the image, series, cores, disk and RAM.
+
+    For example:
+    image=projects/rocky-linux-cloud/global/images/rocky-linux-9-optimized-gcp-v20250709
     """
+
     vcpu = cores * 2
     ram = gb * 1024  # Convert GB to MB
     with console.status(
@@ -126,7 +136,7 @@ def gcloud_instance_create(
     --service-account={service_account} \
     --scopes=https://www.googleapis.com/auth/devstorage.read_only,https://www.googleapis.com/auth/logging.write,https://www.googleapis.com/auth/monitoring.write,https://www.googleapis.com/auth/service.management.readonly,https://www.googleapis.com/auth/servicecontrol,https://www.googleapis.com/auth/trace.append \
     --tags=http-server,https-server \
-    --create-disk=auto-delete=yes,boot=yes,device-name={instance},image=projects/ubuntu-os-cloud/global/images/ubuntu-minimal-2504-plucky-amd64-v20250708,mode=rw,size=132,type=pd-balanced \
+    --create-disk=auto-delete=yes,boot=yes,device-name={instance},image={image},mode=rw,size={diskgb},type=pd-balanced \
     --no-shielded-secure-boot \
     --shielded-vtpm \
     --shielded-integrity-monitoring \
@@ -296,6 +306,65 @@ def cloud_install_ubuntu_microk8s(
             c.run(f"sudo usermod -a -G microk8s {remote_user}")
             c.run("sudo snap install kubectl --classic")
             c.run("mkdir -p ~/.kube")
+        with Connection(host) as c:
+            c.run("cd ~/.kube && microk8s config > config")
+
+    # c.run("sudo ufw allow in on cni0 && sudo ufw allow out on cni0")
+    # c.run("sudo ufw default allow routed")
+    elapsed_time = time.time() - start_time
+    console.print(
+        f":white_check_mark: Installation completed on {host} in {elapsed_time:.2f} seconds"
+    )
+
+
+@diag_cli.command(rich_help_panel="Cloud Diagnostic Commands")
+def cloud_install_rocky_microk8s(
+    host: Annotated[str, typer.Argument(help="host", envvar="HOST")] = None,
+    hide: Annotated[bool, typer.Option(help="Hide output")] = False,
+):
+    """
+    Install on remote Rocky linux host via SSH with MicroK8s
+    """
+    remote_user = ssh(command="whoami", host=host, hide=hide)
+    start_time = time.time()
+    with console.status(f"Installing on {host}..."):
+        with Connection(host) as c:
+            console.print(f"Installing on {host} as user {remote_user}")
+            c.run("sudo dnf -y update")
+            c.run("sudo dnf install epel-release -y")
+            c.run("sudo dnf install snapd -y")
+            c.run("sudo ln -s /var/lib/snapd/snap /snap")
+            c.run(
+                "echo 'export PATH=$PATH:/var/lib/snapd/snap/bin' | sudo tee -a /etc/profile.d/snap.sh"
+            )
+            c.run("source /etc/profile.d/snap.sh")
+            c.run("sudo systemctl enable --now snapd.socket")
+            c.run("systemctl status snapd.socket")
+            c.run("sudo setenforce 0")
+            c.run(
+                "sudo sed -i 's/^SELINUX=.*/SELINUX=permissive/g' /etc/selinux/config"
+            )
+            c.run("sudo apt install -y curl python3-pip pipx")
+            c.run("sudo snap install microk8s --classic")
+            c.run("sudo snap install helm --classic")
+            c.run("sudo dnf install python3.11")
+            c.run("sudo dnf install python3.11-pip -y")
+            c.run("python3.11 -m pip install pipx")
+            c.run("pipx ensurepath")
+            c.run("pipx install hostsman")
+            c.run(
+                "sudo .local/share/pipx/venvs/hostsman/bin/hostsman -i osdu.localhost:127.0.0.1 osdu.local:127.0.0.1 airflow.localhost:127.0.0.1 airflow.local:127.0.0.1 minio.localhost:127.0.0.1 minio.local:127.0.0.1 keycloak.localhost:127.0.0.1 keycloak.local:127.0.0.1"
+            )
+            c.run(
+                'pipx install cibutler --index-url https://community.opengroup.org/api/v4/projects/1558/packages/pypi/simple --pip-args="--extra-index-url=https://community.opengroup.org/api/v4/projects/148/packages/pypi/simple"'
+            )
+            c.run(".local/bin/cibutler --version")
+            c.run("sudo microk8s enable dns")
+            c.run("sudo microk8s enable storage")
+            c.run(f"sudo usermod -a -G microk8s {remote_user}")
+            c.run("sudo snap install kubectl --classic")
+            c.run("mkdir -p ~/.kube")
+        with Connection(host) as c:
             c.run("cd ~/.kube && microk8s config > config")
 
     # c.run("sudo ufw allow in on cni0 && sudo ufw allow out on cni0")

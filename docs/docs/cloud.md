@@ -15,7 +15,7 @@ ZONE =
 ```
 
 ## Testing Steps
-1. `cibutler diag gcloud-instance-create` to create a Ubuntu VM on gcloud
+1. `cibutler diag gcloud-instance-create` to create a VM on gcloud
 1. `cibutler diag gcloud-config-ssh` to configure ssh
 1. ssh to instance to accept keys (command shown above)
 1. `cibutler diag ssh` to test connection
