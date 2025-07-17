@@ -60,25 +60,33 @@ def cpu():
         console.print(f"Performance Cores: {utils.macos_performance_cores()}")
 
 
-def install_cimpl(
-    version: str, source: str, chart: str = "osdu-cimpl"):
+def install_cimpl(version: str, source: str, chart: str = "osdu-cimpl"):
     """
     Install CImpl OCI registry or local source
     """
-    password=utils.random_password()
 
-    console.print(f":pushpin: Requested install version {version} from {source}...")
+    rabbitmq_password = utils.random_password()
+    redis_password = utils.random_password()
+    core_unit_deploy_enabled = "false"
+
+    console.print(f"Using RabbitMQ password: {rabbitmq_password}")
+    console.print(f"Using Redis password: {redis_password}")
+    console.print(f"Core Unit Deploy Enabled: {core_unit_deploy_enabled}")
+
+    console.log(f":pushpin: Requested install version {version} from {source}...")
     if source.startswith("oci://"):
         # OCI registry source
-        logger.info(f"Using OCI registry source {source} for CImpl {version}") 
-        console.print(f":fire: Using OCI registry source {source} for CImpl {version}")
-        run_shell_command(f"helm upgrade --install --set rabbitmq.auth.password={password} {chart} {source} --version {version}")
+        logger.info(f"Using OCI registry source {source} for CImpl {version}")
+        console.log(f":fire: Using OCI registry source {source} for CImpl {version}")
+        run_shell_command(
+            f"helm upgrade --install --set rabbitmq.auth.password={rabbitmq_password} --set global.redis.password={redis_password} --set core_unit_deploy.enabled={core_unit_deploy_enabled} {chart} {source} --version {version}"
+        )
     else:
         # Local source
         logger.info(f"Using local source {source} for CImpl")
-        console.print(f":fire: Using local source {source} for CImpl")
+        console.log(f":fire: Using local source {source} for CImpl")
         run_shell_command(f"helm upgrade --install {chart} {source}")
-    
+
     time.sleep(1)
 
 
@@ -96,7 +104,7 @@ def update_services(
             vsvc = line.split()[0]
             if "cimpl" not in vsvc and "NAME" not in vsvc:
                 filename = f"{vsvc}.yaml"
-                console.print(f":detective: {vsvc}")
+                console.print(f"{vsvc} :detective: ", end="")
                 with open(filename, "w") as outfile:
                     call(
                         ["kubectl", "get", "virtualservice", vsvc, "-o", "yaml"],
@@ -108,7 +116,7 @@ def update_services(
                         yaml = ruamel.yaml.YAML()
                         data = yaml.load(file)
                         data["spec"]["hosts"] = ["osdu.localhost", "osdu.cimpl"]
-                        console.print(f":wrench: {vsvc}")
+                        console.print(":wrench:", end="")
                 except FileNotFoundError:
                     error_console.print(f"{filename} was not saved")
                     raise typer.Exit(1)
@@ -258,11 +266,17 @@ def check_running(
             bootstrap = "schema-bootstrap"
             data = cik8s.get_deployment_status(bootstrap)
             if data is None:
-                error_console.print("Error: Unable to determine status")
+                error_console.print(
+                    f":x: Error: Unable to determine {bootstrap} status"
+                )
+                logger.error(
+                    f"Unable to determine {bootstrap} status. Check if the deployment exists."
+                )
                 errors += 1
                 time.sleep(1)
             elif readyandavailable(data):
                 console.print(f":thumbs_up: {bootstrap} ready")
+                logger.info(f"{bootstrap} is ready")
                 running = True
                 break
             else:
@@ -279,12 +293,14 @@ def check_running(
                         time.sleep(bootstrap_sleep)
         if errors > 3:
             error_console.print("Install failed. Too many errors")
+            logger.error("Install failed. Too many errors")
             return False
 
     duration = time.time() - start
     if duration > 2:
         duration_str = utils.convert_time(duration)
         console.print(f"CImpl bootstrap completed {duration_str}.")
+        logger.info(f"CImpl bootstrap completed {duration_str}.")
     return running
 
 
@@ -304,7 +320,7 @@ def bootstrap_upload_data(
     """
     Bootstrap data upload process into OSDU
     """
-    console.print(f":fire: Starting uploading data: {data_load_flag}... {version}")
+    console.log(f":fire: Starting uploading data: {data_load_flag}... {version}")
     logger.info(f"Starting uploading data: {data_load_flag}... {version}")
 
     run_shell_command(
@@ -317,7 +333,7 @@ def bootstrap_upload_data(
     --set data.bootstrapServiceAccountName="{service_account_name}"'
     )
 
-    console.print(f":fire: Updating deployments... {bootstrap_data_reference}")
+    console.log(f":fire: Updating deployments... {bootstrap_data_reference}")
     logger.info(f"Updating deployments... {bootstrap_data_reference}")
     scale_deploy(bootstrap_data_reference)
     # scale_deploy("bootstrap-data-workproduct")
@@ -325,13 +341,13 @@ def bootstrap_upload_data(
     while True:
         status = cik8s.get_deployment_status(bootstrap_data_legal)
         if "readyReplicas" in status and status["readyReplicas"]:
-            console.print(":thumbs_up: Legal data bootstrapped.")
+            console.log(":thumbs_up: Legal data bootstrapped.")
             break
         else:
             with console.status("Waiting for default legal tag"):
                 time.sleep(sleep)
 
-    console.print(":fire: Starting data load process...")
+    console.log(":fire: Starting data load process...")
     logger.info("Starting data load process...")
     scale_deploy(bootstrap_data_reference, replicas=1)
     start = time.time()
@@ -346,13 +362,13 @@ def bootstrap_upload_data(
                 duration = time.time() - start
                 duration_str = utils.convert_time(duration)
                 with console.status(
-                    f"Data reference load running within the cluster {duration_str}"
+                    f"Data reference load ({data_load_flag}) running within the cluster {duration_str}"
                 ):
                     time.sleep(sleep)
 
         duration = time.time() - start
         duration_str = utils.convert_time(duration)
-        console.print(
+        console.log(
             f"Data loading process ({data_load_flag}) completed. {duration_str}"
         )
         logger.info(

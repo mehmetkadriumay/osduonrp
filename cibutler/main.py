@@ -36,8 +36,10 @@ import cibutler.docs as docs
 import cibutler.update as update
 import cibutler.cloud as cloud
 import cibutler.tf as tf
+import cibutler.debug as cidebug
 import logging
 from dotenv import load_dotenv
+from cibutler._version import __version__ as cibutler_version
 
 home = str(Path.home())
 logging.basicConfig(
@@ -50,7 +52,7 @@ logging.basicConfig(
 logger = logging.getLogger("cibutler")
 
 # loading variables from .env file
-load_dotenv(Path.home().joinpath('.env.cibutler'))
+load_dotenv(Path.home().joinpath(".env.cibutler"))
 
 console = Console()
 error_console = Console(stderr=True, style="bold red")
@@ -66,7 +68,7 @@ diag_cli = typer.Typer(
 )
 
 try:
-    __version__ = importlib.metadata.version("mypackage")
+    __version__ = importlib.metadata.version("cibutler")
 except Exception:
     from cibutler._version import __version__
 
@@ -81,6 +83,7 @@ diag_cli.registered_commands += ciminikube.diag_cli.registered_commands
 diag_cli.registered_commands += cidocker.diag_cli.registered_commands
 diag_cli.registered_commands += cloud.diag_cli.registered_commands
 diag_cli.registered_commands += tf.diag_cli.registered_commands
+diag_cli.registered_commands += cidebug.diag_cli.registered_commands
 
 cli.add_typer(
     diag_cli,
@@ -100,7 +103,7 @@ cli.registered_commands += cihelm.cli.registered_commands
 
 def _version_callback(value: bool):
     if value:
-        console.print(f"cibutler Version: {__version__}")
+        console.print(f"cibutler Version: {__version__} ({cibutler_version})")
         raise typer.Exit()
 
 
@@ -317,7 +320,7 @@ def helm_install(
 @cli.command(rich_help_panel="CI Commands")
 def delete(
     force: Annotated[
-        bool, typer.Option("--force", help="No confirmation prompt")
+        bool, typer.Option("--force", "--yes", help="No confirmation prompt")
     ] = False,
     profile: Annotated[str, typer.Option(hidden=True)] = None,
     minikube: Annotated[bool, typer.Option("-m", hidden=True)] = False,
@@ -368,7 +371,7 @@ def ask_delete():
 @diag_cli.command(rich_help_panel="CImpl Diagnostic Commands")
 def uninstall(
     force: Annotated[
-        bool, typer.Option("--force", help="No confirmation prompt")
+        bool, typer.Option("--force", "--yes", help="No confirmation prompt")
     ] = False,
     name: Annotated[str, typer.Option(help="CImpl Name")] = "osdu-cimpl",
     notebook_name: Annotated[
@@ -415,6 +418,7 @@ def uninstall(
             )
         with console.status("Cleaning up remaining..."):
             console.print(cik8s.delete_item("secret"))
+            console.print(cik8s.delete_item("deployments"))
             console.print(cik8s.delete_item("pvc"))
             console.print(cik8s.delete_all(namespace=namespace))
             console.print(cik8s.delete_all(namespace=istio_namespace))
@@ -458,8 +462,12 @@ def envfile(
 
 @cli.command(rich_help_panel="CI Commands")
 def install(
-    version: Annotated[str, typer.Option(help="CImpl version", envvar="HELM_VERSION")] = None,
-    source: Annotated[ str, typer.Option(help="CImpl source", envvar="HELM_SOURCE")] = None,
+    version: Annotated[
+        str, typer.Option(help="CImpl version", envvar="HELM_VERSION")
+    ] = None,
+    source: Annotated[
+        str, typer.Option(help="CImpl source", envvar="HELM_SOURCE")
+    ] = None,
     notebook_source: Annotated[
         str, typer.Option(help="Notebook source")
     ] = "oci://us-central1-docker.pkg.dev/or2-msq-gnrg-osdu-mp-t1iylu/cimpl/helm/cimpl-notebook",
@@ -529,11 +537,11 @@ def install(
 
     """
 
-    #if (
+    # if (
     #    minikube
     #    or "docker-desktop" in cik8s.get_current_valid_context()
     #    or "minikube" in cik8s.get_current_valid_context()
-    #):
+    # ):
     #    """
     #    If using minikube or docker-desktop as target then let's use
     #    arch of machine to give hints as to what container build would run
@@ -566,20 +574,25 @@ def install(
 
     if not force:
         console.print("The following options will be used for installation:")
-        console.print(f"Installing CImpl version: {version} from: {source}\nwith data load option: {data_load_flag}")
+        console.print(
+            f"Installing CImpl version: {version} from: {source}\nwith data load option: {data_load_flag}"
+        )
         console.print(f"Notebook source: {notebook_source} version: {notebook_version}")
         console.print(f"Data source: {data_source} version: {data_version}")
         console.print(f"Minikube: {minikube}, Kubernetes:{not minikube}")
-        console.print(f"Percent Memory: {percent_memory}, Max CPU: {max_cpu}, Max Memory: {max_memory}, Disk Size: {disk_size}GB")
+        console.print(
+            f"Percent Memory: {percent_memory}, Max CPU: {max_cpu}, Max Memory: {max_memory}, Disk Size: {disk_size}GB"
+        )
         typer.confirm("Proceed with install?", abort=True)
+
+    console.log("Checking if storage class is needed...")
+    cik8s.add_sc(ignore=True)
 
     logger.info(
         f"Installing CImpl version: {version} from: {source} with data load option: {data_load_flag}"
     )
-    logger.info(
-        f"Notebook source: {notebook_source} version: {notebook_version}"
-    )
-    logger.info(f"Data source: {data_source} version: {data_version}")  
+    logger.info(f"Notebook source: {notebook_source} version: {notebook_version}")
+    logger.info(f"Data source: {data_source} version: {data_version}")
     logger.info(f"Minikube: {minikube}, Kubernetes:{not minikube}")
     logger.info(
         f"Percent Memory: {percent_memory}, Max CPU: {max_cpu}, Max Memory: {max_memory}, Disk Size: {disk_size}GB"
@@ -597,7 +610,7 @@ def install(
 
     if not check_istio() and not install_istio():
         logger.error("Installation of istio has failed")
-        error_console.print("Installation istio has failed")
+        error_console.log("Installation istio has failed")
         raise typer.Exit(1)
 
     install_cimpl(version=version, source=source)
@@ -605,17 +618,17 @@ def install(
     update_services(debug=debug)
 
     if not check_running(entitlement_workaround=True, quiet=quiet):
-        error_console.print("Installation has failed")
-        logger.error("Installation has failed")
+        error_console.log("Installation has failed")
+        logger.error(f"Installation of {version} has failed")
         raise typer.Exit(1)
 
     duration = time.time() - start
     duration_str = utils.convert_time(duration)
-    console.print(
-        f"CImpl installed in {duration_str}. Ready to install Notebook and Upload data"
+    console.log(
+        f"CImpl helm: {version} installed in {duration_str}. Ready to install Notebook and Upload data"
     )
     logger.info(
-        f"CImpl installed in {duration_str}. Ready to install Notebook and Upload data"
+        f"CImpl helm: {version} installed in {duration_str}. Ready to install Notebook and Upload data"
     )
 
     if install_notebook:
@@ -630,7 +643,7 @@ def install(
     duration = time.time() - start
     duration_str = utils.convert_time(duration)
     logger.info(f"Install command completed in {duration_str}")
-    console.print(f"Install command completed in {duration_str}")
+    console.log(f"Install command completed in {duration_str}")
 
 
 def data_load(data_load_flag, data_source, data_version, wait_for_complete=True):

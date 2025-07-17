@@ -2,12 +2,11 @@
 ## Requirements for using CI Butler and deploying CImpl locally
 
 !!! example "Support"
-    Currently CI Butler only supports **minikube with Docker**, deploying on **Kubernetes with Docker-Desktop** (built-in kubernetes) and [MicroK8s](https://microk8s.io/) (Ubuntu only).
+    Currently CI Butler only supports **Minikube with Docker**, deploying on **Kubernetes with Docker-Desktop** (built-in kubernetes using a singe-node cluster using [kubeadm](https://kubernetes.io/docs/reference/setup-tools/kubeadm/)) and **[MicroK8s](https://microk8s.io/)** (Ubuntu only).
 
     - Additionally CIButler only supports a single deployment to a kubernetes cluster.
-    - Multiple deployments to different minikubes or separated by namespaces are not supported.
-    - Using both CImpl on minikube and CImpl on Kubernetes with Docker Desktop at the same time is not currently supported. However if you manage the istio/ingress it should work.
-    - Success has been reported that local install to MicroK8s on Ubuntu works, however this is officially not supported or tested. You'll likely have to adjust istio/ingress on your own.
+    - Multiple deployments to different Minikubes or separated by namespaces are not currently supported.
+    - Using both more than 1 deployment at a time (for example CImpl on minikube and CImpl on Kubernetes with Docker Desktop) at the same time is not currently supported. However if you manage the istio/ingress it should work.
 
     However in future support could be added for:
 

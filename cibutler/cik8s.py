@@ -6,6 +6,9 @@ from pick import pick
 from rich.console import Console
 from kubernetes import client, config
 from typing_extensions import Annotated
+from cibutler.shell import run_shell_command
+from pathlib import Path
+import os
 import logging
 
 logger = logging.getLogger(__name__)
@@ -195,17 +198,27 @@ def cluster_info():
     return output.decode("ascii").strip()
 
 
-def delete_item(name):
+def delete_item(name, grace_period: int = 1):
     console.print(f"Deleting {name}...")
     output = subprocess.Popen(
-        ["kubectl", "delete", name, "--all"], stdout=subprocess.PIPE
+        ["kubectl", "delete", name, "--all", f"--grade-period={grace_period}"],
+        stdout=subprocess.PIPE,
     ).communicate()[0]
     return output.decode("ascii").strip()
 
 
-def delete_all(namespace: str = "default"):
+def delete_all(namespace: str = "default", grace_period: int = 1):
     output = subprocess.Popen(
-        ["kubectl", "delete", "all", "--all", "-n", "namespace"], stdout=subprocess.PIPE
+        [
+            "kubectl",
+            "delete",
+            "all",
+            "--all",
+            "-n",
+            "namespace",
+            f"--grace-period={grace_period}",
+        ],
+        stdout=subprocess.PIPE,
     ).communicate()[0]
     return output.decode("ascii").strip()
 
@@ -361,6 +374,85 @@ def ingress():
     Show ingress IP
     """
     console.print(get_ingress_ip())
+
+
+def get_storage_classes():
+    """
+    Get storage classes
+    """
+    try:
+        output = subprocess.run(
+            ["kubectl", "get", "sc", "-o", "json"], capture_output=True, check=True
+        )
+        return json.loads(output.stdout.decode("utf-8"))
+    except subprocess.CalledProcessError as err:
+        error_console.print(f":x: Error getting storage classes: {err}")
+        raise typer.Exit(1)
+
+
+@diag_cli.command(rich_help_panel="Kubernetes Diagnostic Commands")
+def add_sc(
+    name: Annotated[
+        str,
+        typer.Option("--name", help="Name of the Storage Class"),
+    ] = "standard",
+    force: Annotated[
+        bool, typer.Option("--force", help="Create Storage Class even if it exists")
+    ] = False,
+    ignore: Annotated[
+        bool, typer.Option("--ignore", help="Don't raise error if Storage Class exists")
+    ] = False,
+):
+    """
+    Add Storage Class with docker.io/hostpath provisioner to Kubernetes cluster if it does not already exist.
+
+    If it exists, it will not be overwritten unless --force is specified.
+    The Storage Class will be created with the name specified by --name.
+
+    """
+
+    classes = get_storage_classes()
+    logger.debug(f"Available Storage Classes: {classes}")
+    for sc in classes.get("items", []):
+        if sc.get("metadata", {}).get("name") == name:
+            if force:
+                console.log(
+                    f":warning: Storage Class {name} already exists, but will be overwritten due to --force option"
+                )
+            elif ignore:
+                console.log(
+                    f":information_source: Storage Class {name} already exists, ignoring due to --ignore option"
+                )
+                return
+            else:
+                error_console.print(
+                    f":x: Storage Class {name} already exists, use --force to overwrite"
+                )
+                raise typer.Exit(1)
+
+    yaml = f"""apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: {name}
+  annotations:
+    storageclass.kubernetes.io/is-default-class: "false" # Optional, to make it the default
+provisioner: docker.io/hostpath
+reclaimPolicy: Delete # Or Retain, depending on your needs
+volumeBindingMode: Immediate # Or WaitForFirstConsumer
+    """.strip()
+
+    filename = Path.home().joinpath("sc.yaml")
+    with open(filename, "w") as f:
+        f.write(yaml)
+
+    console.log(f"Adding Storage Class {name}...")
+    try:
+        run_shell_command(f"kubectl apply -f {filename}")
+        console.log(f":thumbs_up: Storage Class {name} Added")
+        os.remove(filename)  # Clean up the temporary file
+    except subprocess.CalledProcessError as err:
+        error_console.print(f":x: Error adding Storage Class {name}: {err}")
+        raise typer.Exit(1)
 
 
 if __name__ == "__main__":

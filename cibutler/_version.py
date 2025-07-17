@@ -1,9 +1,9 @@
-__version__ = "0.1.a3.docpipeline0"
+__version__ = "0.2.a1.docpipeline0"
 __branch__ = "doc_pipeline"
 __build__ = "0"
 __release__ = "a3.docpipeline0"
 __buildtime__ = 1737731393.851233
 __commitid__ = ""
 __commitmessage__ = """"""
-__committimestamp__ = "2025-01-24T10:09:53.847687"
+__committimestamp__ = "2025-07-17T10:09:53.847687"
 __commitrefslug__ = ""

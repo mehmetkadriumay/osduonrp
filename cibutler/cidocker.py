@@ -28,7 +28,11 @@ def docker_info_ncpu():
     """
     Return Number of CPUs setting/allow to be used by docker
     """
-    return int(docker_info(outputformat="{{json .NCPU}}"))
+    try:
+        return int(docker_info(outputformat="{{json .NCPU}}"))
+    except ValueError as err:
+        logger.error(f"Error parsing NCPU from docker info: {err}")
+        return 0
 
 
 def docker_info(outputformat):

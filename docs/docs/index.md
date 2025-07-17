@@ -1,7 +1,7 @@
 # OSDU CI Butler
 
 The CI Butler (or CIButler) is an easy to use CLI for installing OSDU locally.  In short, CIButler is a tool for development, automation, testing and interacting with OSDU directly. It was built to make installing Community Implementation of OSDU easier and faster with OSDU.
-CIButler was not designed to support production needs.
+CIButler was not designed to support production needs and doesn't meet security needs of a production system.
 
 The CIButler is supported on Mac, Windows and Linux.  It is known to work best on Mac, but should also work on Windows and Linux.
 
