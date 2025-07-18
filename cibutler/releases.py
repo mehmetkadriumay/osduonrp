@@ -1,7 +1,5 @@
 import typer
-from pick import pick
 from rich.console import Console
-from typing_extensions import Annotated
 import inquirer
 import logging
 from cibutler._version import __version__ as cibutler_version
@@ -24,7 +22,13 @@ diag_cli = typer.Typer(
 
 
 @diag_cli.command(rich_help_panel="Diagnostic Commands", hidden=True)
-def select_version():
+def select_version(defaults: bool = False):
+    if defaults:
+        return (
+            "0.28.0-local-c18982c9a",
+            "oci://us-central1-docker.pkg.dev/or2-msq-gnrg-osdu-mp-t1iylu/cimpl/helm/osdu-cimpl",
+        )
+
     versions = {
         "0.27.0-local           (M24 Oct 2024 x86)       Tested and Working  GC BareMetal": "oci://us-central1-docker.pkg.dev/or2-msq-gnrg-osdu-mp-t1iylu/cimpl/helm/osdu-cimpl",
         "0.27.0-local           (M24 Oct 2024 arm only)  Tested and Working  GC BareMetal": "oci://us-central1-docker.pkg.dev/or2-msq-gnrg-osdu-mp-t1iylu/cimpl/helm/osdu-cimpl-arm",
@@ -43,6 +47,7 @@ def select_version():
         inquirer.List(
             "helm_version",
             message="What Helm Version (typically also the OSDU Version)?",
+            default=options[-1],
             choices=options,
         ),
     ]

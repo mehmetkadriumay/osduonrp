@@ -26,7 +26,18 @@ def test_check():
 
 @pytest.mark.skipif(sys.version_info < (3, 11), reason="requires python3.11 or later")
 def test_install_on_kubernetes():
-    result = runner.invoke(cli, ["install", "-k", "--data-load-flag", "dd-reference"])
+    result = runner.invoke(
+        cli,
+        [
+            "install",
+            "-k",
+            "--data-load-flag",
+            "dd-reference",
+            "--max-memory",
+            "--max-cpu",
+            "--force",
+        ],
+    )
     assert result.exit_code == 0
 
 

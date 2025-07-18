@@ -1,4 +1,4 @@
-__version__ = "0.2.a1.docpipeline0"
+__version__ = "0.3.a1.docpipeline0"
 __branch__ = "doc_pipeline"
 __build__ = "0"
 __release__ = "a3.docpipeline0"

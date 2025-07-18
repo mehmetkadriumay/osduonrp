@@ -60,27 +60,62 @@ def cpu():
         console.print(f"Performance Cores: {utils.macos_performance_cores()}")
 
 
-def install_cimpl(version: str, source: str, chart: str = "osdu-cimpl"):
+def install_cimpl(
+    version: str,
+    source: str,
+    chart: str = "osdu-cimpl",
+    configured_options: dict = None,
+):
     """
     Install CImpl OCI registry or local source
     """
 
-    rabbitmq_password = utils.random_password()
-    redis_password = utils.random_password()
-    core_unit_deploy_enabled = "false"
+    rabbitmq_password = configured_options.get(
+        "rabbitmq_password", utils.random_password()
+    )
+    redis_password = configured_options.get("redis_password", utils.random_password())
+    osdu_services = configured_options.get("osdu_services")
+
+    unit_enabled = str("Unit" in osdu_services).lower()
+    crs_catalog_enabled = str("Crs-catalog" in osdu_services).lower()
+    crs_converter_enabled = str("Crs-converter" in osdu_services).lower()
+    policy_enabled = str("Policy" in osdu_services).lower()
 
     console.print(f"Using RabbitMQ password: {rabbitmq_password}")
     console.print(f"Using Redis password: {redis_password}")
-    console.print(f"Core Unit Deploy Enabled: {core_unit_deploy_enabled}")
+    console.log(f"Core Unit Deploy Enabled: {unit_enabled}")
+    console.log(f"Core CRS Catalog Deploy Enabled: {crs_catalog_enabled}")
+    console.log(f"Core CRS Converter Deploy Enabled: {crs_converter_enabled}")
+    console.log(f"Core Policy Deploy Enabled: {policy_enabled}")
 
     console.log(f":pushpin: Requested install version {version} from {source}...")
+
     if source.startswith("oci://"):
         # OCI registry source
         logger.info(f"Using OCI registry source {source} for CImpl {version}")
         console.log(f":fire: Using OCI registry source {source} for CImpl {version}")
-        run_shell_command(
-            f"helm upgrade --install --set rabbitmq.auth.password={rabbitmq_password} --set global.redis.password={redis_password} --set core_unit_deploy.enabled={core_unit_deploy_enabled} {chart} {source} --version {version}"
-        )
+
+        if version.startswith("0.27."):
+            run_shell_command(
+                f"helm upgrade --install \
+            --set rabbitmq.auth.password={rabbitmq_password} \
+            --set global.redis.password={redis_password} \
+            {chart} {source} --version {version}"
+            )
+        else:
+            run_shell_command(
+                f"helm upgrade --install \
+            --set rabbitmq.auth.password={rabbitmq_password} \
+            --set global.redis.password={redis_password} \
+            --set core_unit_deploy.enabled={unit_enabled} \
+            --set core_partition_deploy.data.policyServiceEnabled={policy_enabled} \
+            --set core_policy_deploy.enabled={policy_enabled} \
+            --set core_crs_catalog_deploy.enabled={crs_catalog_enabled} \
+            --set core-crs-catalog-deploy.enabled={crs_catalog_enabled} \
+            --set core_crs_converter_deploy.enabled={crs_converter_enabled} \
+            --set core-crs-converter-deploy.enabled={crs_converter_enabled} \
+            {chart} {source} --version {version}"
+            )
     else:
         # Local source
         logger.info(f"Using local source {source} for CImpl")
@@ -173,7 +208,7 @@ def notebook(
 def helm_install_notebook(notebook_source: str, version: str):
     with console.status("Getting ingress..."):
         ingress_ip = cik8s.get_ingress_ip()
-    console.print(":fire: Installing Notebook...")
+    console.log(":fire: Installing Notebook...")
     run_shell_command(
         f"helm upgrade --install cimpl-notebook {notebook_source} --version {version} --set conf.ingressIP={ingress_ip}"
     )
@@ -190,9 +225,10 @@ def readyandavailable(data):
 
 @diag_cli.command(rich_help_panel="CImpl Diagnostic Commands")
 def check_running(
+    version: str,
     sleep: int = 120,
     bootstrap_sleep: int = 30,
-    max: int = 50,
+    max_wait: int = 50,
     quiet: bool = False,
     entitlement_workaround: bool = False,
 ):
@@ -218,7 +254,9 @@ def check_running(
                 and "partition-bootstrap" in pods_not_ready
                 and "keycloak-bootstrap" in pods_not_ready
             ):
-                console.print(":fire: [cyan]Restarting entitlements...[/cyan]")
+                console.print(
+                    ":fire: [cyan]Restarting entitlements (deployment and bootstrap)...[/cyan]"
+                )
                 # kubectl rollout restart deploy entitlements > /dev/null
                 call(
                     ["kubectl", "rollout", "restart", "deploy", "entitlements"],
@@ -240,20 +278,28 @@ def check_running(
                 break
 
             # if running over max time
-            if duration > (60 * max):
-                error_console.print(
+            if duration > (60 * max_wait):
+                error_console.log(
                     f"There seems to be an issue with `{pods_not_ready}`."
                 )
                 console.print(
-                    "Please get the logs of crashing pod with 'kubectl logs <Name-of-the-pod>"
+                    """Please get the logs of crashing pod with 'kubectl logs <Name-of-the-pod>
+                    Your system may still be usable, but these pods are not ready.
+
+                    This may be an issue with OSDU or with the container image, either way
+                    CIButler is not able to handle this particular situation.
+
+                    Notebook and Data loading will not be run. You can run them manually however.
+                    See https://osdu.pages.opengroup.org/ui/cibutler/troubleshooting/
+                    """
                 )
                 break
 
             console.print()
             count = len(pods_not_ready.strip().split(" "))
             duration_str = utils.convert_time(duration)
-            console.print(
-                f":person_running: Pods not yet ready: {count}, elapsed: {duration_str}"
+            console.log(
+                f":person_running: Pods not yet ready: {count}, elapsed: {duration_str} version: {version}"
             )
             for _ in rich.progress.track(
                 range(sleep),
@@ -262,7 +308,7 @@ def check_running(
             ):
                 time.sleep(1)
         else:
-            console.print(":thumbs_up: pods ready")
+            console.log(":thumbs_up: pods ready")
             bootstrap = "schema-bootstrap"
             data = cik8s.get_deployment_status(bootstrap)
             if data is None:
@@ -275,14 +321,12 @@ def check_running(
                 errors += 1
                 time.sleep(1)
             elif readyandavailable(data):
-                console.print(f":thumbs_up: {bootstrap} ready")
+                console.log(f":thumbs_up: {bootstrap} ready")
                 logger.info(f"{bootstrap} is ready")
                 running = True
                 break
             else:
-                console.print(
-                    "Bootstrap default set of schemas is still in progress..."
-                )
+                console.log("Bootstrap default set of schemas is still in progress...")
                 if quiet:
                     time.sleep(bootstrap_sleep)
                 else:
@@ -292,14 +336,21 @@ def check_running(
                     ):
                         time.sleep(bootstrap_sleep)
         if errors > 3:
-            error_console.print("Install failed. Too many errors")
+            error_console.log("Install failed. Too many errors")
+            console.print(
+                """Please get the logs of crashing pod with 'kubectl logs <Name-of-the-pod>
+
+                    This may be an issue with OSDU, with the container image, or with CIButler.
+                    See https://osdu.pages.opengroup.org/ui/cibutler/troubleshooting/
+                    """
+            )
             logger.error("Install failed. Too many errors")
             return False
 
     duration = time.time() - start
     if duration > 2:
         duration_str = utils.convert_time(duration)
-        console.print(f"CImpl bootstrap completed {duration_str}.")
+        console.log(f"CImpl bootstrap completed {duration_str}.")
         logger.info(f"CImpl bootstrap completed {duration_str}.")
     return running
 
@@ -355,7 +406,7 @@ def bootstrap_upload_data(
         while True:
             status = cik8s.get_deployment_status(bootstrap_data_reference)
             if "readyReplicas" in status and status["readyReplicas"]:
-                console.print(":thumbs_up: reference data bootstrapped.")
+                console.log(":thumbs_up: reference data bootstrapped.")
                 logger.info("reference data bootstrapped.")
                 break
             else:
@@ -407,7 +458,10 @@ def data_load_callback(option: str):
     return option
 
 
-def get_data_load_option():
+def get_data_load_option(defaults: bool = False):
+    if defaults:
+        return "dd-reference"
+
     options = [
         "dd-reference",
         "partial-dd-reference",
@@ -437,7 +491,7 @@ def get_data_load_option():
         console.print("skipping")
         return None
     else:
-        console.print(answers["data_load_flag"])
+        console.print("You selected: ", answers["data_load_flag"])
         return answers["data_load_flag"]
 
 

@@ -4,12 +4,9 @@ import typer
 from typing_extensions import Annotated
 from typing import Optional
 from rich.console import Console
-from rich.prompt import Prompt, Confirm
-import ruamel.yaml
-import os
+from rich.prompt import Confirm
 import time
 from pathlib import Path
-import shutil
 import platform
 import importlib.metadata
 import cibutler.downloader as downloader
@@ -37,6 +34,8 @@ import cibutler.update as update
 import cibutler.cloud as cloud
 import cibutler.tf as tf
 import cibutler.debug as cidebug
+import cibutler.config as config
+import cibutler.check as cicheck
 import logging
 from dotenv import load_dotenv
 from cibutler._version import __version__ as cibutler_version
@@ -84,6 +83,7 @@ diag_cli.registered_commands += cidocker.diag_cli.registered_commands
 diag_cli.registered_commands += cloud.diag_cli.registered_commands
 diag_cli.registered_commands += tf.diag_cli.registered_commands
 diag_cli.registered_commands += cidebug.diag_cli.registered_commands
+diag_cli.registered_commands += config.diag_cli.registered_commands
 
 cli.add_typer(
     diag_cli,
@@ -99,191 +99,13 @@ cli.registered_commands += ciminikube.cli.registered_commands
 cli.registered_commands += key.cli.registered_commands
 cli.registered_commands += osdu.cli.registered_commands
 cli.registered_commands += cihelm.cli.registered_commands
+cli.registered_commands += cicheck.cli.registered_commands
 
 
 def _version_callback(value: bool):
     if value:
         console.print(f"cibutler Version: {__version__} ({cibutler_version})")
         raise typer.Exit()
-
-
-def prompt(ask, password=True, default=None, length=8):
-    while True:
-        value = Prompt.ask(ask, default=default, password=password)
-        if len(value) >= length:
-            break
-        console.print("[prompt.invalid]password too short")
-    return value
-
-
-@diag_cli.command(rich_help_panel="CImpl Diagnostic Commands")
-def configure(
-    default_random_password: bool = typer.Option(
-        True, "--random", help="Use random passwords"
-    ),
-    interactive: bool = typer.Option(True, "--prompt", help="Prompt for values"),
-):
-    """Configure CImpl custom values file  :wrench:"""
-    filename = "values.yaml"
-    # url = "https://community.opengroup.org/osdu/platform/deployment-and-operations/infra-gcp-provisioning/-/raw/master/examples/simple_osdu_docker_desktop/custom-values.yaml"
-    url = "https://community.opengroup.org/osdu/platform/deployment-and-operations/base-containers-cimpl/osdu-cimpl-stack/-/raw/main/helm/values.yaml"
-
-    if os.path.isfile(filename):
-        console.print(f"{filename} exists")
-    else:
-        downloader.download([url], "./")
-    data = custom_values(filename=filename)
-    if not data:
-        error_console.print(f"Unable to read {filename}")
-        raise typer.Exit(1)
-
-    try:
-        if default_random_password:
-            minio_password = utils.random_password()
-            keycloak_admin_password = utils.random_password()
-            postgresql_password = utils.random_password()
-            airflow_externaldb_password = utils.random_password()
-            airflow_password = utils.random_password()
-            elasticsearch_password = utils.random_password()
-            rabbitmq_password = utils.random_password()
-        else:
-            minio_password = data["minio"]["auth"]["rootPassword"]
-            # keycloak_admin_password = data["keycloak"]["auth"]["adminPassword"]
-            postgresql_password = data["postgresql"]["global"]["postgresql"]["auth"][
-                "postgresPassword"
-            ]
-            airflow_externaldb_password = data["airflow"]["externalDatabase"][
-                "password"
-            ]
-            airflow_password = data["airflow"]["auth"]["password"]
-            elasticsearch_password = data["elasticsearch"]["security"][
-                "elasticPassword"
-            ]
-            # rabbitmq_password = data["rabbitmq"]["auth"]["password"]
-        domain = data["common-infra-bootstrap"]["global"]["domain"]
-        # limits_enabled = str(data["global"]["limitsEnabled"]).lower()
-    except KeyError as e:
-        error_console.print(f"Key {e} not found in {filename}.")
-        raise typer.Exit(1)
-
-    useInternalServerUrl = "true"
-    hide = True
-    domain = Prompt.ask("Domain", default=domain)
-
-    # limits_enabled = Prompt.ask(
-    #    "limitsEnabled", choices=["true", "false"], default=limits_enabled
-    # )
-    # keycloak_admin_password = prompt(
-    #    "Keycloak Password", password=hide, default=keycloak_admin_password
-    # )
-    if interactive:
-        minio_password = prompt("Minio Password", password=hide, default=minio_password)
-        postgresql_password = prompt(
-            "Postgresql Password", password=hide, default=postgresql_password
-        )
-        airflow_externaldb_password = prompt(
-            "Airflow ExternalDB Password",
-            password=hide,
-            default=airflow_externaldb_password,
-        )
-        airflow_password = prompt(
-            "Airflow Password", password=hide, default=airflow_password
-        )
-        elasticsearch_password = prompt(
-            "ElasticSearch Password", password=hide, default=elasticsearch_password
-        )
-        rabbitmq_password = prompt(
-            "RabbitMQ Password", password=hide, default=rabbitmq_password
-        )
-        use_internal_server_url = Prompt.ask(
-            "useInternalServerUrl",
-            choices=["true", "false"],
-            default=useInternalServerUrl,
-        )
-
-    try:
-        # Airflow
-        data["airflow"]["externalDatabase"]["password"] = airflow_externaldb_password
-        data["airflow"]["auth"]["password"] = airflow_password
-        data["airflow"]["airflow-infra-bootstrap"]["domain"] = domain
-        data["common-infra-bootstrap"]["global"]["domain"] = domain
-        data["common-infra-bootstrap"]["airflow"]["auth"]["password"] = airflow_password
-        data["common-infra-bootstrap"]["airflow"]["externalDatabase"][
-            "password"
-        ] = airflow_password
-
-        # Elasticseach
-        data["elasticsearch"]["security"]["elasticPassword"] = elasticsearch_password
-        data["elasticsearch"]["elastic-infra-bootstrap"]["global"]["domain"] = domain
-        data["elasticsearch"]["elastic-infra-bootstrap"]["elastic_bootstrap"][
-            "elasticPassword"
-        ] = elasticsearch_password
-
-        # Minio
-        # data["global"]["limitsEnabled"] = bool(limits_enabled)
-        data["minio"]["auth"]["rootPassword"] = minio_password
-        data["minio"]["minio-infra-bootstrap"]["global"]["domain"] = domain
-        data["minio"]["minio-infra-bootstrap"]["minio"]["auth"][
-            "rootPassword"
-        ] = minio_password
-        # data["minio"]["useInternalServerUrl"] = bool(use_internal_server_url)
-        # data["keycloak"]["auth"]["adminPassword"] = keycloak_admin_password
-
-        # postgresql
-        data["postgresql"]["global"]["postgresql"]["auth"][
-            "postgresPassword"
-        ] = postgresql_password
-        data["postgresql"]["postgres-infra-bootstrap"]["global"]["domain"] = domain
-        data["postgresql"]["postgres-infra-bootstrap"]["postgresql"]["global"][
-            "postgresql"
-        ]["auth"]["postgresPassword"] = postgresql_password
-
-        # common-infra-bootstrap
-        data["common-infra-bootstrap"]["global"]["domain"] = domain
-        data["common-infra-bootstrap"]["airflow"]["auth"]["password"] = airflow_password
-        data["common-infra-bootstrap"]["airflow"]["externalDatabase"][
-            "password"
-        ] = airflow_externaldb_password
-
-        # cimpl-bootstrap-rabbitmq
-        data["cimpl-bootstrap-rabbitmq"]["rabbitmq"]["auth"][
-            "password"
-        ] = rabbitmq_password
-
-        # OSDU Services values
-        data["core-plus-crs-catalog-deploy"]["global"]["domain"] = domain
-        data["core-plus-crs-conversion-deploy"]["global"]["domain"] = domain
-        data["core-plus-dataset-deploy"]["global"]["domain"] = domain
-        data["core-plus-entitlements-deploy"]["global"]["domain"] = domain
-        data["core-plus-file-deploy"]["global"]["domain"] = domain
-        data["core-plus-indexer-deploy"]["global"]["domain"] = domain
-        data["core-plus-legal-deploy"]["global"]["domain"] = domain
-        data["core-plus-notification-deploy"]["global"]["domain"] = domain
-        data["core-plus-partition-deploy"]["global"]["domain"] = domain
-        data["core-plus-policy-deploy"]["global"]["domain"] = domain
-        data["core-plus-register-deploy"]["global"]["domain"] = domain
-        data["core-plus-schema-deploy"]["global"]["domain"] = domain
-        data["core-plus-search-deploy"]["global"]["domain"] = domain
-        data["core-plus-storage-deploy"]["global"]["domain"] = domain
-        data["core-plus-unit-deploy"]["global"]["domain"] = domain
-        data["core-plus-wellbore-deploy"]["global"]["domain"] = domain
-        data["core-plus-wellbore-worker-deploy"]["global"]["domain"] = domain
-        data["core-plus-workflow-deploy"]["global"]["domain"] = domain
-        data["core-plus-secret-deploy"]["global"]["domain"] = domain
-
-    except KeyError as e:
-        error_console.print(f"Key {e} not found in processing {filename}.")
-        raise typer.Exit(1)
-
-    if Confirm.ask("Save?", default=True):
-        with open(filename, "w") as file:
-            yaml = ruamel.yaml.YAML()
-            yaml.dump(data, file)
-            console.print(f"Updated: {filename}")
-
-    # if Confirm.ask("Install?", default=True):
-    #    output = helm_install()
-    #    console.print(output)
 
 
 @diag_cli.command(rich_help_panel="Helm Diagnostic Commands")
@@ -320,7 +142,7 @@ def helm_install(
 @cli.command(rich_help_panel="CI Commands")
 def delete(
     force: Annotated[
-        bool, typer.Option("--force", "--yes", help="No confirmation prompt")
+        bool, typer.Option("--force", "--yes", "-y", help="No confirmation prompt")
     ] = False,
     profile: Annotated[str, typer.Option(hidden=True)] = None,
     minikube: Annotated[bool, typer.Option("-m", hidden=True)] = False,
@@ -416,32 +238,23 @@ def uninstall(
             console.print(
                 cihelm.helm_uninstall(name="istiod", namespace=istio_namespace)
             )
-        with console.status("Cleaning up remaining..."):
+        console.log("Cleaning up remaining...")
+        with console.status("Deleting remaining secrets..."):
             console.print(cik8s.delete_item("secret"))
+        with console.status("Deleting remaining deployments..."):
             console.print(cik8s.delete_item("deployments"))
-            console.print(cik8s.delete_item("pvc"))
+
+        with console.status("Patching all PVCs"):
+            cik8s.patch_all_pvcs(namespace=namespace)
+
+        # with console.status("Deleting remaining pvc..."):
+        # console.print(cik8s.delete_item("pvc"))
+        with console.status(f"Deleting everything else in {namespace}..."):
             console.print(cik8s.delete_all(namespace=namespace))
+        with console.status(f"Deleting everything else in {istio_namespace}..."):
             console.print(cik8s.delete_all(namespace=istio_namespace))
     else:
         raise typer.Abort()
-
-
-def custom_values(filename="custom-values.yaml"):
-    try:
-        with open(filename, "r") as config:
-            # try:
-            # data = yaml.safe_load(config)
-            yaml = ruamel.yaml.YAML()
-            data = yaml.load(config)
-            # except yaml.YAMLError as err:
-            # except yaml.YAMLError as err:
-            #    print(err)
-            # console.print(data)
-            # yaml.dump(data, sys.stdout)
-            return data
-    except FileNotFoundError:
-        error_console.print(f"File {filename} Not found")
-        return None
 
 
 @cli.command(rich_help_panel="OSDU Related Commands")
@@ -495,7 +308,8 @@ def install(
         float, typer.Option(help="What percent of docker memory should be allocated")
     ] = 0.98,
     quiet: Annotated[
-        bool, typer.Option("--quiet", help="Less output / for non-interactive use")
+        bool,
+        typer.Option("--quiet", "-q", help="Less output / for non-interactive use"),
     ] = False,
     max_cpu: Annotated[
         bool,
@@ -513,8 +327,11 @@ def install(
     disk_size: Annotated[
         int, typer.Option(help="Disk size allocated to the minikube VM in GB")
     ] = 120,
+    max_wait: Annotated[
+        int, typer.Option(help="Maximum wait time for OSDU install in minutes")
+    ] = 50,
     force: Annotated[
-        bool, typer.Option(help="Attempt to force install", hidden=True)
+        bool, typer.Option("--force", "--yes", "-y", help="Attempt to force install")
     ] = False,
     minikube: Annotated[
         bool,
@@ -557,20 +374,23 @@ def install(
 
     if not version and not source:
         if force:
-            error_console.print("No version or source provided. Exiting.")
-            raise typer.Exit(1)
-        # If no version or source is provided, prompt user to select a version
-        version, source = releases.select_version()
-
-    if not version or not source:
-        error_console.print("No version or source selected. Exiting.")
-        raise typer.Exit(1)
+            console.print(":warning: No version or source provided.")
+            version, source = releases.select_version(defaults=True)
+        else:
+            # If no version or source is provided, prompt user to select a version
+            version, source = releases.select_version()
 
     if not data_load_flag:
         if force:
-            error_console.print("No data load option provided. Exiting.")
-            raise typer.Exit(1)
-        data_load_flag = get_data_load_option()
+            console.print(":warning: No data load option provided.")
+            data_load_flag = get_data_load_option(defaults=True)
+        else:
+            data_load_flag = get_data_load_option()
+
+    if force:
+        configured_options = config.config(defaults=True)
+    else:
+        configured_options = config.config()
 
     if not force:
         console.print("The following options will be used for installation:")
@@ -583,6 +403,7 @@ def install(
         console.print(
             f"Percent Memory: {percent_memory}, Max CPU: {max_cpu}, Max Memory: {max_memory}, Disk Size: {disk_size}GB"
         )
+        console.print(f"Enabled OSDU Services: {configured_options['osdu_services']}")
         typer.confirm("Proceed with install?", abort=True)
 
     console.log("Checking if storage class is needed...")
@@ -613,22 +434,37 @@ def install(
         error_console.log("Installation istio has failed")
         raise typer.Exit(1)
 
-    install_cimpl(version=version, source=source)
+    install_cimpl(version=version, source=source, configured_options=configured_options)
 
     update_services(debug=debug)
 
-    if not check_running(entitlement_workaround=True, quiet=quiet):
-        error_console.log("Installation has failed")
-        logger.error(f"Installation of {version} has failed")
+    if not check_running(
+        version=version, entitlement_workaround=True, quiet=quiet, max_wait=max_wait
+    ):
+        error_console.log(
+            f"Installation of {version} has failed on {platform.platform()}"
+        )
+        logger.error(f"Installation of {version} has failed on {platform.platform()}")
         raise typer.Exit(1)
 
     duration = time.time() - start
     duration_str = utils.convert_time(duration)
     console.log(
-        f"CImpl helm: {version} installed in {duration_str}. Ready to install Notebook and Upload data"
+        f"CImpl helm: {version} installed in {duration_str}.\nReady to install Notebook and Upload data"
+    )
+    console.log(
+        f"""
+        Please report the following information to #cap-cibutler slack channel:
+        CImpl Installation Summary:
+        CIButler Version: {__version__} {cibutler_version} on {platform.platform()}
+        CImpl helm version: {version} from: {source}
+        Installation time: {duration_str}
+        Minikube: {minikube}, Kubernetes:{not minikube}
+        Percent Memory: {percent_memory}, Max CPU: {max_cpu}, Max Memory: {max_memory}, Disk Size: {disk_size}GB"
+        """
     )
     logger.info(
-        f"CImpl helm: {version} installed in {duration_str}. Ready to install Notebook and Upload data"
+        f"CImpl helm: {version} installed in {duration_str} on {platform.platform()}. Ready to install Notebook and Upload data"
     )
 
     if install_notebook:
@@ -643,7 +479,7 @@ def install(
     duration = time.time() - start
     duration_str = utils.convert_time(duration)
     logger.info(f"Install command completed in {duration_str}")
-    console.log(f"Install command completed in {duration_str}")
+    console.log(f"Install ({version}) command completed in {duration_str}")
 
 
 def data_load(data_load_flag, data_source, data_version, wait_for_complete=True):
@@ -696,124 +532,6 @@ def upload_data(
         data_version=data_version,
         wait_for_complete=wait_for_complete,
     )
-
-
-@cli.command(rich_help_panel="CI Commands")
-def check(
-    all: Annotated[bool, typer.Option("--all", "-k", help="Additional checks")] = False,
-    skip_docker_daemon: Annotated[
-        bool, typer.Option("--skip-docker-daemon", help="Skip testing docker daemon")
-    ] = False,
-):
-    """
-    Install Preflight Check
-    """
-    console.print(f"Platform: {platform.platform()}")
-    utils.cpu_info()
-    preflight_checks(skip_docker_daemon=skip_docker_daemon)
-    cimpl.check_hosts()
-    if all:
-        k8s_checks()
-
-
-def preflight_checks(skip_docker_daemon=False):
-    total_heap_required = 26
-    MIN_CPU_CORES = 6
-    with console.status("Checking Requirements..."):
-        external_utils = [
-            "docker",
-            "minikube",
-            "kubectl",
-            "helm",
-            "pip",
-        ]
-        for cmd in external_utils:
-            cmd_path = shutil.which(cmd)
-            if cmd_path:
-                console.print(f":white_check_mark: {cmd} installed")
-            else:
-                error_console.print(f":x: {cmd} not installed or not found")
-
-        if skip_docker_daemon:
-            return
-
-        # nprocs = utils.getconf_nprocs_online()
-        nprocs = utils.cpu_count()
-        if nprocs and nprocs >= MIN_CPU_CORES:
-            console.print(f":white_check_mark: CPU Cores online: {nprocs} :thumbs_up:")
-        else:
-            error_console.print(f":x: Not enough CPU cores detected {nprocs}")
-
-        ncpu = cidocker.docker_info_ncpu()
-        if ncpu == 0:
-            error_console.print(
-                ":x: Error getting NCPU setting. Is the docker daemon running?"
-            )
-            raise typer.Exit(2)
-        elif ncpu >= MIN_CPU_CORES:
-            console.print(f":white_check_mark: Docker CPU Limit: {ncpu} :thumbs_up:")
-        else:
-            error_console.print(
-                f":x: Docker CPU Limit too low. Not enough CPU given to docker {ncpu}"
-            )
-            console.print(
-                f"Please increase to a min. {MIN_CPU_CORES}.\nIf you recently changed this value try restarting docker."
-            )
-
-        memory = utils.convert_size(cidocker.docker_info_memtotal())
-        ram = cidocker.docker_info_memtotal()
-        if ram == 0:
-            error_console.print(
-                ":x: Error getting RAM setting. Is the docker daemon running?"
-            )
-            raise typer.Exit(1)
-        mem_gb = ram / 1024 / 1024 / 1024
-        if total_heap_required > mem_gb:
-            error_console.print(
-                f":x: Not enough RAM configured for docker. Found {memory} but {total_heap_required} GiB recommended"
-            )
-        else:
-            console.print(
-                f":white_check_mark: Docker Reporting enough RAM for install {memory} :thumbs_up:"
-            )
-
-
-def k8s_checks():
-    info = cik8s.cluster_info()
-    if info.count("running") >= 2:
-        console.print(":white_check_mark: Kubernetes cluster running :thumbs_up:")
-    else:
-        error_console.print(":x: Kubernetes may not be running:")
-        print(info)
-        raise typer.Exit(1)
-
-    cores = cik8s.kube_allocatable_cpu()
-    if cores >= 4:
-        console.print(f":white_check_mark: Kubernetes CPU cores {cores} :thumbs_up:")
-    else:
-        error_console.print(f":x: Not enough CPU {cores} given to docker/kubernetes")
-        raise typer.Exit(1)
-
-    k8s_memory = cik8s.kube_allocatable_memory()
-    if k8s_memory.endswith("Ki"):
-        ki = int(k8s_memory.replace("Ki", ""))
-        gb = ki / 1024 / 1024
-        if gb >= 23.2:
-            console.print(
-                f":white_check_mark: Allocatable RAM {gb:.2f} GiB :thumbs_up:"
-            )
-        else:
-            error_console.print(
-                f":x: Not enough Allocatable RAM for {gb:.2f} kubernetes"
-            )
-        raise typer.Exit(1)
-
-    num_ready = int(cik8s.kube_istio_ready().split()[0])
-    if num_ready >= 1:
-        console.print(":white_check_mark: istio ready :thumbs_up:")
-    else:
-        error_console.print(":x: istio not ready")
-        raise typer.Exit(1)
 
 
 @cli.callback()

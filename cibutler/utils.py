@@ -6,8 +6,6 @@ import secrets
 import cpuinfo
 import signal
 from enum import Enum
-import sys
-import os
 import socket
 import logging
 

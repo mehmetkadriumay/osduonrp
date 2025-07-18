@@ -8,7 +8,7 @@
 - **Charter:** N/A
 - **Documentation:** [Doc](https://osdu.pages.opengroup.org/ui/cibutler/)
 - **Backlog:** 
-- **Slack Channel:** [pmc-community-infrastructure](https://og.enterprise.slack.com/archives/C07SDCNAMR9)
+- **Slack Channel:** [cap-cibutler](https://og.enterprise.slack.com/archives/C096DM26UHW)
 - **Meeting Schedule:** N/A
 
 ## Background

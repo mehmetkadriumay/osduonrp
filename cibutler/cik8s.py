@@ -198,10 +198,17 @@ def cluster_info():
     return output.decode("ascii").strip()
 
 
-def delete_item(name, grace_period: int = 1):
-    console.print(f"Deleting {name}...")
+def delete_item(name, namespace="default", grace_period: int = 1):
     output = subprocess.Popen(
-        ["kubectl", "delete", name, "--all", f"--grace-period={grace_period}"],
+        [
+            "kubectl",
+            "delete",
+            name,
+            "--all",
+            "-n",
+            namespace,
+            f"--grace-period={grace_period}",
+        ],
         stdout=subprocess.PIPE,
     ).communicate()[0]
     return output.decode("ascii").strip()
@@ -215,7 +222,7 @@ def delete_all(namespace: str = "default", grace_period: int = 1):
             "all",
             "--all",
             "-n",
-            "namespace",
+            namespace,
             f"--grace-period={grace_period}",
         ],
         stdout=subprocess.PIPE,
@@ -223,16 +230,18 @@ def delete_all(namespace: str = "default", grace_period: int = 1):
     return output.decode("ascii").strip()
 
 
-def kubectl_get(opt="vs"):
+def kubectl_get(opt="vs", namespace: str = "default"):
     try:
-        output = subprocess.run(["kubectl", "get", opt], capture_output=True)  # nosec
+        output = subprocess.run(
+            ["kubectl", "get", opt, "-n", namespace], capture_output=True
+        )  # nosec
     except subprocess.CalledProcessError as err:
         return str(err)
     else:
         return output.stdout.decode("ascii").strip()
 
 
-def get_ingress_ip():
+def get_ingress_ip(namespace: str = "istio-system"):
     output = subprocess.Popen(
         [
             "kubectl",
@@ -240,7 +249,7 @@ def get_ingress_ip():
             "--no-headers",
             "svc",
             "-n",
-            "istio-system",
+            namespace,
             "istio-ingress",
         ],
         stdout=subprocess.PIPE,
@@ -249,22 +258,33 @@ def get_ingress_ip():
 
 
 @diag_cli.command(rich_help_panel="Kubernetes Diagnostic Commands")
-def pods_not_running():
+def pods_not_running(
+    namespace: Annotated[
+        str,
+        typer.Option(
+            "--namespace", "-n", help="Namespace to check for pods not running"
+        ),
+    ] = "default",
+):
     """
     Show pods that are not running
     """
-    console.print(get_pods_not_running())
+    console.print(get_pods_not_running(namespace=namespace))
 
 
-def get_pods_not_running():
-    cmd = "kubectl get pods -o jsonpath='{range .items[?(@.status.containerStatuses[-1:].state.waiting)]}{.metadata.name}: {@.status.containerStatuses[*].state.waiting.reason}{\"\\n\"}{end}'"  # nosec
+def get_pods_not_running(namespace: str = "default"):
+    """
+    Get pods that are not running in the specified namespace.
+    """
+    jsonpath = "'{range .items[?(@.status.containerStatuses[-1:].state.waiting)]}{.metadata.name}: {@.status.containerStatuses[*].state.waiting.reason}{\"\\n\"}{end}'"  # nosec
+    cmd = f"kubectl get pods -n {namespace} -o jsonpath={jsonpath}"  # nosec
     args = shlex.split(cmd)
     output = subprocess.Popen(args, stdout=subprocess.PIPE).communicate()[0]
     return output.decode("ascii").strip()
 
 
-def get_deployment_status(deployment):
-    cmd = f"kubectl get deploy {deployment} -o jsonpath='{{.status}}'"  # nosec
+def get_deployment_status(deployment: str, namespace: str = "default"):
+    cmd = f"kubectl get deploy {deployment} -n {namespace} -o jsonpath='{{.status}}'"  # nosec
     args = shlex.split(cmd)
     output = subprocess.Popen(args, stdout=subprocess.PIPE).communicate()[0]
     data = output.decode("ascii").strip()
@@ -347,25 +367,33 @@ def selectcontext():
 
 
 @diag_cli.command(rich_help_panel="Kubernetes Diagnostic Commands")
-def services():
+def services(
+    namespace: Annotated[
+        str, typer.Option("--namespace", "-n", help="Namespace to list services from")
+    ] = "default",
+):
     """
     Show virtual services
     """
-    console.print(kubectl_get())
+    console.print(kubectl_get(namespace=namespace))
 
 
 @diag_cli.command(rich_help_panel="Kubernetes Diagnostic Commands")
-def ready():
+def ready(
+    namespace: Annotated[
+        str, typer.Option("--namespace", "-n", help="Namespace to check for pods ready")
+    ] = "default",
+):
     """
     Pods ready
     """
-    pods = get_pods_not_running()
+    pods = get_pods_not_running(namespace=namespace)
     if pods:
-        console.print(":x: Pods Not Ready")
+        console.print(f":x: Pods Not Ready in {namespace}")
         console.print(pods)
         typer.Exit(1)
     else:
-        console.print(":thumbs_up: Pods Ready")
+        console.print(f":thumbs_up: Pods Ready in {namespace}")
 
 
 @diag_cli.command(rich_help_panel="Kubernetes Diagnostic Commands")
@@ -374,6 +402,47 @@ def ingress():
     Show ingress IP
     """
     console.print(get_ingress_ip())
+
+
+def get_pvcs(namespace: str = "default"):
+    """
+    Get persistent volume claims
+    """
+    try:
+        output = subprocess.run(
+            ["kubectl", "get", "pvc", "-n", namespace, "-o", "json"],
+            capture_output=True,
+            check=True,
+        )
+        return json.loads(output.stdout.decode("utf-8"))
+    except subprocess.CalledProcessError as err:
+        error_console.print(f":x: Error getting PVCs: {err}")
+        raise typer.Exit(1)
+
+
+@diag_cli.command(rich_help_panel="Kubernetes Diagnostic Commands")
+def list_pvcs(
+    namespace: Annotated[
+        str, typer.Option("--namespace", "-n", help="Namespace to list PVCs from")
+    ] = "default",
+):
+    """
+    List persistent volume claims in the specified namespace.
+    """
+    output = get_pvcs(namespace)
+    if not output.get("items"):
+        console.print(f":information_source: No PVCs found in namespace '{namespace}'")
+    console.print(":page_facing_up: Persistent Volume Claims in namespace:", namespace)
+    for pvc in output.get("items", []):
+        name = pvc.get("metadata", {}).get("name", "Unknown")
+        status = pvc.get("status", {}).get("phase", "Unknown")
+        size = (
+            pvc.get("spec", {})
+            .get("resources", {})
+            .get("requests", {})
+            .get("storage", "Unknown")
+        )
+        console.print(f"{name} - Status: {status}, Size: {size}")
 
 
 def get_storage_classes():
@@ -388,6 +457,72 @@ def get_storage_classes():
     except subprocess.CalledProcessError as err:
         error_console.print(f":x: Error getting storage classes: {err}")
         raise typer.Exit(1)
+
+
+@diag_cli.command(rich_help_panel="Kubernetes Diagnostic Commands")
+def patch_all_pvcs(
+    namespace: Annotated[
+        str, typer.Option("--namespace", "-n", help="Namespace to patch PVCs in")
+    ] = "default",
+    patch_data: Annotated[
+        str,
+        typer.Option(
+            "--data",
+            "-d",
+            help="data string to patch PVCs with",
+            rich_help_panel="JSON string",
+        ),
+    ] = '{"metadata": {"finalizers": null}}',  # Default patch to remove finalizers
+):
+    """
+    Patch all Persistent Volume Claims (PVCs) in the specified namespace with the provided data.
+    """
+    output = get_pvcs(namespace)  # Ensure we can get PVCs in the namespace
+    for pvc in output.get("items", []):
+        name = pvc.get("metadata", {}).get("name", "Unknown")
+        patch_pvc(pvc_name=name, namespace=namespace, patch_data=patch_data)
+
+
+@diag_cli.command(rich_help_panel="Kubernetes Diagnostic Commands")
+def patch_pvc(
+    pvc_name: str,
+    namespace: Annotated[
+        str, typer.Option("--namespace", "-n", help="Namespace to patch PVC in")
+    ] = "default",
+    patch_data: Annotated[
+        str,
+        typer.Option(
+            "--data",
+            "-d",
+            help="data string to patch PVC with",
+            rich_help_panel="JSON string",
+        ),
+    ] = '{"metadata": {"finalizers": null}}',  # Default patch to remove finalizers  ,
+):
+    """
+    Patch a Persistent Volume Claim (PVC) with the provided data.
+    """
+    if not patch_data:
+        error_console.print(":x: No patch data provided.")
+        raise typer.Exit(1)
+
+    try:
+        console.print(
+            f"Patching PVC '{pvc_name}' in namespace '{namespace}' with data:"
+        )
+        console.print(f":wrench: Patching PVC '{pvc_name}'...")
+        console.print(f":page_facing_up: Patch Data: {patch_data}")
+        # Ensure the patch is a valid JSON string
+        output = subprocess.run(
+            ["kubectl", "patch", "pvc", pvc_name, "-n", namespace, "-p", patch_data],
+            capture_output=True,
+            check=True,
+        )
+        console.print(f":thumbs_up: PVC '{pvc_name}' patched successfully.")
+        return output.stdout.decode("utf-8")
+    except subprocess.CalledProcessError as err:
+        error_console.print(f":x: Error patching PVC '{pvc_name}': {err}")
+        logging.error(f"Error patching PVC '{pvc_name}': {err}")
 
 
 @diag_cli.command(rich_help_panel="Kubernetes Diagnostic Commands")
