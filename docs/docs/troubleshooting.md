@@ -1,6 +1,7 @@
 # Troubleshooting
 
 Things to try when CI Butler installs fail:
+
 * Reset your kubernetes cluster (sometimes docker desktop gets confused) - this is especially true if install is taking a long time.
 * Restart docker desktop
 * Reboot

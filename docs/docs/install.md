@@ -3,11 +3,13 @@
 
 !!! example "Support"
     Currently CI Butler supports:
+
     - **Minikube with Docker**,
     - **Kubernetes with Docker-Desktop** (built-in kubernetes using a singe-node cluster using [kubeadm](https://kubernetes.io/docs/reference/setup-tools/kubeadm/)) and
     - **[MicroK8s](https://microk8s.io/)** (Ubuntu only, but Rocky Linux 9 on roadmap).
 
     Additional Support Notes:
+
     - Additionally CIButler only supports a single deployment to a kubernetes cluster.
     - Multiple deployments to different Minikubes or separated by namespaces are not currently supported.
     - Using both more than 1 deployment at a time (for example CImpl on minikube and CImpl on Kubernetes with Docker Desktop) at the same time is not currently supported. However if you manage the istio/ingress it should work.
