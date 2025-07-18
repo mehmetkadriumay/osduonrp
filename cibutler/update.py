@@ -7,21 +7,41 @@ import rich.box
 import time
 import importlib
 import logging
+from pypi_simple import PyPISimple
 
 logger = logging.getLogger(__name__)
 
 try:
-    __version__ = importlib.metadata.version("mypackage")
+    __version__ = importlib.metadata.version("cibutler")
 except Exception:
     from cibutler._version import __version__
 
 import cibutler._version as _version
+from cibutler._version import __version__ as cibutler_version
 from cibutler import __app_name__
 
 console = Console()
 error_console = Console(stderr=True, style="bold red")
 
 cli = typer.Typer()
+
+
+def available_versions(
+    index_url: str = typer.Option(
+        "https://community.opengroup.org/api/v4/projects/1558/packages/pypi/simple",
+        "--index-url",
+        help="index-url",
+    ),
+    project: str = "cibutler",
+):
+    versions = ""
+    with PyPISimple(endpoint=index_url) as client:
+        requests_page = client.get_project_page(project)
+        for package in requests_page.packages:
+            # console.print(package.version)
+            # versions.append(package.version)
+            versions += f"{package.version.strip()} "
+    return versions
 
 
 @cli.command(rich_help_panel="Utility Commands", name="version")
@@ -37,17 +57,15 @@ def update(
     """
     Version and Update information for cibutler :rocket:
     """
-    # index_url = "https://community.opengroup.org/api/v4/projects/1351/packages/pypi/simple"
-
     text = f"""
-    Currently running: {__app_name__} [green]v{__version__}[/green]
+    Currently running: {__app_name__} [green]v{__version__}[/green] ({cibutler_version})
     BuildTime: {time.ctime(_version.__buildtime__)}
     Branch: {_version.__branch__}
     CommitID: {_version.__commitid__}
     CommitMesage: {_version.__commitmessage__}
     CommitTimestamp: {_version.__committimestamp__}
     """
-    command_line = f"pip index versions {project} --index-url " + index_url.strip()
+    # command_line = f"pip index versions {project} --index-url " + index_url.strip()
     # upgrade_command_line = (
     #    "pip install --upgrade cibutler --index-url " + index_url.strip()
     # )
@@ -62,17 +80,19 @@ def update(
 
     pre_release_msg = ""
     if pre:
-        command_line = command_line + " --pre"
+        # command_line = command_line + " --pre"
         # upgrade_command_line = upgrade_command_line + " --pre"
         pre_release_msg = "pre-release"
 
-    args = shlex.split(command_line)
-    try:
-        p = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        stdout, stderr = p.communicate()
-    except FileNotFoundError:
-        error_console.print("Error: Unable to locate Pip")
-        raise typer.Exit(3)
+    # args = shlex.split(command_line)
+    # try:
+    #    p = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    #    stdout, stderr = p.communicate()
+    # except FileNotFoundError:
+    #    error_console.print("Error: Unable to locate Pip")
+    #    raise typer.Exit(3)
+
+    output = available_versions(index_url=index_url, project=project)
 
     console.print(
         Panel(text, box=rich.box.SQUARE, expand=True, title="[green]Current[/green]")
@@ -80,7 +100,7 @@ def update(
     # console.print(stdout.decode())
     console.print(
         Panel(
-            "\n" + stdout.decode(),
+            "\n" + output,
             box=rich.box.SQUARE,
             expand=True,
             title=f"[green]Available from [/green][cyan]{index_url}[/cyan]",

@@ -3,10 +3,10 @@ name = "cibutler"
 version = "0.3.0"
 description = "OSDU CImpl install utility"
 readme = "README.md"
-authors = [{name = "Shane Hutchins", email = "shane.hutchins@hitachids.com"}]
+authors = [{name = "Shane Hutchins", email = "shane@integralcloudsolutions.com"}]
 keywords = ["osdu"]
 maintainers = [
-  {name = "Shane Hutchins", email = "shane.hutchins@hitachids.com"}
+  {name = "Shane Hutchins", email = "shane@integralcloudsolutions.com"}
 ]
 license = {text = "Apache-2.0"}
 requires-python = ">=3.11,<4.0"
@@ -31,6 +31,7 @@ dependencies = [
     "py-cpuinfo==9.0.0",
     "pyhelm3>=0.4.0",
     "pyperclip>=1.9.0",
+    "pypi-simple>=1.6.1",
     "python-dateutil>=2.9.0.post0",
     "python-dotenv>=1.1.1",
     "python-keycloak>=5.1.1",

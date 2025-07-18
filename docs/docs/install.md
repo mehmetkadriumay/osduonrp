@@ -2,16 +2,20 @@
 ## Requirements for using CI Butler and deploying CImpl locally
 
 !!! example "Support"
-    Currently CI Butler only supports **Minikube with Docker**, deploying on **Kubernetes with Docker-Desktop** (built-in kubernetes using a singe-node cluster using [kubeadm](https://kubernetes.io/docs/reference/setup-tools/kubeadm/)) and **[MicroK8s](https://microk8s.io/)** (Ubuntu only).
+    Currently CI Butler supports:
+    - **Minikube with Docker**,
+    - **Kubernetes with Docker-Desktop** (built-in kubernetes using a singe-node cluster using [kubeadm](https://kubernetes.io/docs/reference/setup-tools/kubeadm/)) and
+    - **[MicroK8s](https://microk8s.io/)** (Ubuntu only, but Rocky Linux 9 on roadmap).
 
+    Additional Support Notes:
     - Additionally CIButler only supports a single deployment to a kubernetes cluster.
     - Multiple deployments to different Minikubes or separated by namespaces are not currently supported.
     - Using both more than 1 deployment at a time (for example CImpl on minikube and CImpl on Kubernetes with Docker Desktop) at the same time is not currently supported. However if you manage the istio/ingress it should work.
 
     However in future support could be added for:
 
-    - Namespace separation (allowing multiple deployments),
-    - Deploying to other small local kubernetes (kind, k3s, etc)
+    - Namespace separation (allowing multiple deployments) at least not in default namespace,
+    - Deploying to other small local kubernetes (kind, k3s, etc),
     - Other remote kubernetes deployments (even cloud based),
     - Minikube support for more than docker driver (i.e. QEMU, Hyperkit, Hyper-V, KVM, Parallels, Podman, VirtualBox, VMware Fusion/Workstation, etc.)
 
@@ -23,13 +27,14 @@
 
     - Mac OS, Windows or Linux
     - 150GB of free disk space
-    - Min. 32GB of RAM. Limited success and testing with Mac with 24GB of RAM. Hope to test more in the future.
-    - 6 logical processors. Limited success with 4 logical processors
+    - Min. 32GB of RAM on Windows and Linux. Min. of 24GB of RAM on Mac with M2 or newer. Hope to test more in the future. 24GB however may not be enough for any real testing.
+    - 6 logical processors (aka vCPU). Limited success with 4 logical processors
 
     CIButler supports MacOS, Windows and Linux, and has been tested most often with:
 
     - MacOS Sequoia 15.2 and later
     - Windows11 - some users have reported needing [Microsoft C++ build tools](https://visualstudio.microsoft.com/visual-cpp-build-tools/) installed.
+    - Ubuntu
 
 
 ## Installation Instructions
@@ -251,7 +256,7 @@ cibutler status
 One of the following:
 
 ``` bash title="cibutler to check get client-secret"
-cibutler client-secret
+cibutler diag client-secret
 ```
 
 alternatively you can run kubectl directly:
