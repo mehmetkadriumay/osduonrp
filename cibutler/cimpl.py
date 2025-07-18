@@ -299,7 +299,7 @@ def check_running(
             count = len(pods_not_ready.strip().split(" "))
             duration_str = utils.convert_time(duration)
             console.log(
-                f":person_running: Pods not yet ready: {count}, elapsed: {duration_str} version: {version}"
+                f":person_running: Pods not yet ready: {count}, elapsed: {duration_str}, version: {version}"
             )
             for _ in rich.progress.track(
                 range(sleep),
