@@ -154,7 +154,7 @@ test-deployment-of-package:
     #- curl -LsSf https://astral.sh/uv/install.sh | sh
     #- export UV_LINK_MODE=copyexport 
     - $PACKAGE --help
-    - $PACKAGE check --skip-docker-daemon
+    - $PACKAGE check --target minikube
     #- $PACKAGE config-minikube --max-cpu --max-memory
 
 include:

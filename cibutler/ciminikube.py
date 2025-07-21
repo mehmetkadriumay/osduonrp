@@ -3,7 +3,6 @@ from subprocess import call
 from rich.console import Console
 import typer
 import platform
-from typing_extensions import Annotated
 import logging
 import cibutler.utils as utils
 import cibutler.cidocker as cidocker

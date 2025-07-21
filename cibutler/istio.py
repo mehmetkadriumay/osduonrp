@@ -12,7 +12,8 @@ def check_istio():
     helms = ["istio-base", "istio-ingress", "istiod"]
     for chart in helms:
         if cihelm.helm_query(chart):
-            console.print(f":thumbs_up: {chart} installed")
+            console.print(f":warning: {chart} already installed")
+            logger.info(f"{chart} already installed")
         else:
             console.print(f"{chart} not yet installed")
             return False
@@ -27,7 +28,7 @@ def install_istio(
     Install istio
     """
     console.print(f":pushpin: Adding helm repo {repo}")
-    run_shell_command(f"helm repo add istio {repo}")
+    run_shell_command(f"helm repo add istio {repo}")  # nosec
     run_shell_command("helm repo update")  # nosec
 
     run_shell_command(

@@ -4,6 +4,7 @@ import logging
 from fabric import Connection
 from typing_extensions import Annotated
 from cibutler.shell import run_shell_command
+import subprocess
 import time
 
 # gcloud compute config-ssh
@@ -71,11 +72,16 @@ def ssh(
 
 
 @diag_cli.command(rich_help_panel="Cloud Diagnostic Commands")
-def gcloud_config_ssh():
+def gcloud_config_ssh(
+    host: Annotated[str, typer.Option(help="host", envvar="HOST")] = None,
+    accept_new: Annotated[bool, typer.Option(help="accept ssh key")] = False,
+):
     """
     Populate SSH config files with Host entries from each gcloud instance
     """
     run_shell_command("gcloud compute config-ssh")
+    if accept_new:
+        run_shell_command(f"ssh -o StrictHostKeyChecking=accept-new {host} uname")
 
 
 @diag_cli.command(rich_help_panel="Cloud Diagnostic Commands")
@@ -174,6 +180,49 @@ def gcloud_instance_stop(
 
 
 @diag_cli.command(rich_help_panel="Cloud Diagnostic Commands")
+def gcloud_compute_images_list(
+    filter: Annotated[
+        str, typer.Option(help="Filter for images", envvar="FILTER")
+    ] = "",
+):
+    """
+    List GCP VM images in a project with an optional filter
+    """
+    filter_option = f"--filter={filter}" if filter else ""
+    output = subprocess.run(
+        [
+            "gcloud",
+            "compute",
+            "images",
+            "list",
+            "--uri",
+            "--format",
+            "json",
+            filter_option,
+        ],
+        capture_output=True,
+        check=True,
+    )
+    console.print(output.stdout.decode("utf-8"))
+    return output.stdout.decode("utf-8")
+
+
+@diag_cli.command(rich_help_panel="Cloud Diagnostic Commands")
+def gcloud_compute_images(
+    prefix: Annotated[
+        str, typer.Option(help="Image prefix")
+    ] = "https://www.googleapis.com/compute/v1/",
+):
+    image_list = gcloud_compute_images_list(
+        filter="(name~ubuntu-minimal OR name~rocky-linux-9-optimized-gcp) AND (status=READY) AND NOT name~nvidia"  # noqa: E501
+    )
+    for image in image_list.splitlines():
+        image = image.strip()
+        image_name = image.removeprefix(prefix)
+        console.print(f"Image: {image_name}")
+
+
+@diag_cli.command(rich_help_panel="Cloud Diagnostic Commands")
 def gcloud_instance_start(
     instance: Annotated[str, typer.Argument(help="GCP Instance", envvar="INSTANCE")],
     zone: Annotated[
@@ -192,11 +241,46 @@ def gcloud_instance_delete(
     zone: Annotated[
         str, typer.Option(help="GCP Zone", envvar="ZONE")
     ] = "us-central1-b",
+    force: Annotated[
+        bool,
+        typer.Option(
+            "--force", "--yes", "--quiet", "-y", help="No confirmation prompt"
+        ),
+    ] = False,
 ):
     """
     Delete a GCP VM instance in zone
     """
-    run_shell_command(f"gcloud compute instances delete {instance} --zone={zone}")
+    if force:
+        run_shell_command(
+            f"gcloud compute instances delete {instance} --zone={zone} --delete-disks=all --quiet"
+        )
+    else:
+        run_shell_command(
+            f"gcloud compute instances delete {instance} --zone={zone} --delete-disks=all"
+        )
+
+
+@diag_cli.command(rich_help_panel="Cloud Diagnostic Commands")
+def cloud_install_cibutler(
+    host: Annotated[str, typer.Argument(help="host", envvar="HOST")] = None,
+    target: Annotated[str, typer.Argument(help="target")] = "microk8s",
+):
+    """
+    Run CI Butler install on remote linux host via ssh
+    """
+    remote_user = ssh(command="whoami", host=host)
+    start_time = time.time()
+    with console.status(f"Installing on {host}..."):
+        with Connection(host) as c:
+            console.print(f"Running CIButler on {host} as user {remote_user}")
+            c.run(".local/bin/cibutler --version")
+            c.run(f".local/bin/cibutler check --target {target}")
+            c.run(f".local/bin/cibutler install -k --force")
+    elapsed_time = time.time() - start_time
+    console.print(
+        f":white_check_mark: Installation completed on {host} in {elapsed_time:.2f} seconds"
+    )
 
 
 @diag_cli.command(rich_help_panel="Cloud Diagnostic Commands")
@@ -308,6 +392,46 @@ def cloud_install_ubuntu_microk8s(
             c.run("mkdir -p ~/.kube")
         with Connection(host) as c:
             c.run("cd ~/.kube && microk8s config > config")
+
+    # c.run("sudo ufw allow in on cni0 && sudo ufw allow out on cni0")
+    # c.run("sudo ufw default allow routed")
+    elapsed_time = time.time() - start_time
+    console.print(
+        f":white_check_mark: Installation completed on {host} in {elapsed_time:.2f} seconds"
+    )
+
+
+@diag_cli.command(rich_help_panel="Cloud Diagnostic Commands")
+def cloud_install_ubuntu_k3s(
+    host: Annotated[str, typer.Argument(help="host", envvar="HOST")] = None,
+    hide: Annotated[bool, typer.Option(help="Hide output")] = False,
+):
+    """
+    Install on remote ubuntu linux host via SSH with K3s
+    """
+    remote_user = ssh(command="whoami", host=host, hide=hide)
+    start_time = time.time()
+    with console.status(f"Installing on {host}..."):
+        with Connection(host) as c:
+            console.print(f"Installing on {host} as user {remote_user}")
+            c.run("sudo apt-get update")
+            c.run("sudo apt install -y curl python3-pip pipx")
+            c.run("curl -sfL https://get.k3s.io | sh - ")
+            c.run("sudo snap install helm --classic")
+            c.run("sudo k3s kubectl get node")
+            c.run("pipx ensurepath")
+            c.run("pipx install hostsman")
+            c.run(
+                "sudo .local/share/pipx/venvs/hostsman/bin/hostsman -i osdu.localhost:127.0.0.1 osdu.local:127.0.0.1 airflow.localhost:127.0.0.1 airflow.local:127.0.0.1 minio.localhost:127.0.0.1 minio.local:127.0.0.1 keycloak.localhost:127.0.0.1 keycloak.local:127.0.0.1"
+            )
+            c.run(
+                'pipx install cibutler --index-url https://community.opengroup.org/api/v4/projects/1558/packages/pypi/simple --pip-args="--extra-index-url=https://community.opengroup.org/api/v4/projects/148/packages/pypi/simple"'
+            )
+            c.run(".local/bin/cibutler --version")
+            c.run("mkdir -p ~/.kube")
+            c.run("sudo k3s kubectl config view --raw > $HOME/.kube/config")
+            c.run("chown 600 $HOME/.kube/config")
+            c.run("kubectl get node")
 
     # c.run("sudo ufw allow in on cni0 && sudo ufw allow out on cni0")
     # c.run("sudo ufw default allow routed")

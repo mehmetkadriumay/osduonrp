@@ -5,10 +5,6 @@ import logging
 from cibutler._version import __version__ as cibutler_version
 
 logger = logging.getLogger(__name__)
-
-import logging
-from rich.console import Console
-
 console = Console()
 error_console = Console(stderr=True, style="bold red")
 

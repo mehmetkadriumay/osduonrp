@@ -83,7 +83,7 @@ def config(
             "\n" + output,
             box=rich.box.SQUARE,
             expand=True,
-            title=f"[cyan]Customize OSDU[/cyan]",
+            title="[cyan]Customize OSDU[/cyan]",
         )
     )
 
