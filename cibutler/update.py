@@ -1,6 +1,4 @@
 import typer
-import subprocess
-import shlex
 from rich.console import Console
 from rich.panel import Panel
 import rich.box
@@ -9,16 +7,17 @@ import importlib
 import logging
 from pypi_simple import PyPISimple
 
-logger = logging.getLogger(__name__)
+
+import cibutler._version as _version
+from cibutler._version import __version__ as cibutler_version
+from cibutler import __app_name__
 
 try:
     __version__ = importlib.metadata.version("cibutler")
 except Exception:
     from cibutler._version import __version__
 
-import cibutler._version as _version
-from cibutler._version import __version__ as cibutler_version
-from cibutler import __app_name__
+logger = logging.getLogger(__name__)
 
 console = Console()
 error_console = Console(stderr=True, style="bold red")

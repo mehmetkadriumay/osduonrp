@@ -4,6 +4,8 @@ import typer
 from typing_extensions import Annotated
 from typing import Optional
 from rich.console import Console
+from rich.panel import Panel
+import rich.box
 from rich.prompt import Confirm
 import time
 from pathlib import Path
@@ -15,6 +17,7 @@ import cibutler.cik8s as cik8s
 import cibutler.key as key
 import cibutler.cidocker as cidocker
 import cibutler.ciminikube as ciminikube
+import cibutler.check as check
 from cibutler.istio import check_istio, install_istio
 import cibutler.cimpl as cimpl
 from cibutler.cimpl import (
@@ -33,6 +36,7 @@ import cibutler.docs as docs
 import cibutler.update as update
 import cibutler.cloud as cloud
 import cibutler.tf as tf
+import cibutler.conf as conf
 import cibutler.debug as cidebug
 import cibutler.config as config
 import cibutler.check as cicheck
@@ -273,6 +277,38 @@ def envfile(
     downloader.download([url], "./")
 
 
+def success_message(
+    version: str,
+    source: str,
+    minikube: bool,
+    max_memory: bool,
+    max_cpu: bool,
+    duration_str: str,
+    percent_memory: float,
+    disk_size: int,
+):
+    gb_memory = cik8s.kube_allocatable_memory_gb()
+    output = f"""
+    [yellow]Please report the following information to #cap-cibutler slack channel:[/yellow]
+
+    [green]CImpl Installation Summary:[/green]
+    [bold]CIButler Version:[/bold] {__version__} {cibutler_version} on {platform.platform()}
+    [bold]Helm Version:[/bold] {version}
+    [bold]Helm Source:[/bold] {source}
+    [bold]Installation time:[/bold] {duration_str}
+    [bold]Minikube:[/bold] {minikube}, [bold]Kubernetes:[/bold] {not minikube}
+    Percent Memory: {percent_memory}, Max CPU: {max_cpu}, Max Memory: {max_memory}, Disk Size: {disk_size} GB, K8s RAM: {gb_memory:.2f} GiB
+    """
+    console.print(
+        Panel(
+            output,
+            box=rich.box.SQUARE,
+            expand=True,
+            title="[cyan]OSDU Install Success - Please Report[/cyan]",
+        )
+    )
+
+
 @cli.command(rich_help_panel="CI Commands")
 def install(
     version: Annotated[
@@ -340,7 +376,7 @@ def install(
             "-m/-k",
             help="Deploy Minikube (in Docker) or existing kubernetes cluster",
         ),
-    ] = True,
+    ] = None,
     debug: Annotated[bool, typer.Option(help="Debug", hidden=True)] = False,
 ):
     """
@@ -372,6 +408,20 @@ def install(
     #    else:
     #        console.print(":sparkles: Running on x86 architecture")
 
+    if force:
+        if minikube is None:
+            error_console.print(
+                "Target not selected, '--minikube' or '--kubernetes' required"
+            )
+            raise typer.Exit(1)
+        configured_options = config.config(defaults=True)
+    else:
+        target = check.check()
+        if "minikube" in target.lower():
+            minikube = True
+        else:
+            minikube = False
+
     if not version and not source:
         if force:
             console.print(":warning: No version or source provided.")
@@ -387,12 +437,16 @@ def install(
         else:
             data_load_flag = get_data_load_option()
 
-    if force:
-        configured_options = config.config(defaults=True)
-    else:
-        configured_options = config.config()
+    if minikube:
+        mem_gb = cidocker.docker_mem_gb()
+        if conf.total_heap_required > mem_gb:
+            console.print(
+                "[yellow]:warning: Due to low memory, enabling [/yellow]'max-memory'"
+            )
+            max_memory = True
 
     if not force:
+        configured_options = config.config()
         console.print("The following options will be used for installation:")
         console.print(
             f"Installing CImpl version: {version} from: {source}\nwith data load option: {data_load_flag}"
@@ -400,14 +454,12 @@ def install(
         console.print(f"Notebook source: {notebook_source} version: {notebook_version}")
         console.print(f"Data source: {data_source} version: {data_version}")
         console.print(f"Minikube: {minikube}, Kubernetes:{not minikube}")
-        console.print(
-            f"Percent Memory: {percent_memory}, Max CPU: {max_cpu}, Max Memory: {max_memory}, Disk Size: {disk_size}GB"
-        )
+        if minikube:
+            console.print(
+                f"Percent Memory: {percent_memory}, Max CPU: {max_cpu}, Max Memory: {max_memory}, Disk Size: {disk_size}GB"
+            )
         console.print(f"Enabled OSDU Services: {configured_options['osdu_services']}")
         typer.confirm("Proceed with install?", abort=True)
-
-    console.log("Checking if storage class is needed...")
-    cik8s.add_sc(ignore=True)
 
     logger.info(
         f"Installing CImpl version: {version} from: {source} with data load option: {data_load_flag}"
@@ -420,6 +472,7 @@ def install(
     )
 
     start = time.time()
+
     if minikube:
         ciminikube.config_minikube(
             percent_memory=percent_memory,
@@ -428,6 +481,9 @@ def install(
             disk_size=disk_size,
         )
         ciminikube.minikube_start(force=force)
+
+    console.log("Checking if storage class is needed in Kubernetes...")
+    cik8s.add_sc(ignore=True)
 
     if not check_istio() and not install_istio():
         logger.error("Installation of istio has failed")
@@ -439,7 +495,11 @@ def install(
     update_services(debug=debug)
 
     if not check_running(
-        version=version, entitlement_workaround=True, quiet=quiet, max_wait=max_wait
+        minikube=minikube,
+        version=version,
+        entitlement_workaround=True,
+        quiet=quiet,
+        max_wait=max_wait,
     ):
         error_console.log(
             f"Installation of {version} has failed on {platform.platform()}"
@@ -450,19 +510,20 @@ def install(
     duration = time.time() - start
     duration_str = utils.convert_time(duration)
     console.log(
-        f"CImpl helm: {version} installed in {duration_str}.\nReady to install Notebook and Upload data"
+        f"CImpl helm: {version} installed in {duration_str}.\nReady to install Notebook and Upload data\n"
     )
-    console.log(
-        f"""
-        Please report the following information to #cap-cibutler slack channel:
-        CImpl Installation Summary:
-        CIButler Version: {__version__} {cibutler_version} on {platform.platform()}
-        CImpl helm version: {version} from: {source}
-        Installation time: {duration_str}
-        Minikube: {minikube}, Kubernetes:{not minikube}
-        Percent Memory: {percent_memory}, Max CPU: {max_cpu}, Max Memory: {max_memory}, Disk Size: {disk_size}GB"
-        """
+
+    success_message(
+        version=version,
+        source=source,
+        minikube=minikube,
+        max_memory=max_memory,
+        max_cpu=max_cpu,
+        duration_str=duration_str,
+        percent_memory=percent_memory,
+        disk_size=disk_size,
     )
+
     logger.info(
         f"CImpl helm: {version} installed in {duration_str} on {platform.platform()}. Ready to install Notebook and Upload data"
     )

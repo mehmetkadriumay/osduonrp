@@ -87,3 +87,5 @@ osdu_end_points = {
     #   "doc": "https://community.opengroup.org/osdu/platform/data-flow/ingestion/external-data-sources/eds-dms/-/tree/master/doc",
     # },
 }
+
+total_heap_required = 26

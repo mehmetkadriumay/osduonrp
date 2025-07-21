@@ -35,6 +35,7 @@ def check_hosts():
     """
     Check hosts file
     """
+    good = True
     required = [
         "osdu.localhost",
         "osdu.local",
@@ -47,6 +48,8 @@ def check_hosts():
             console.print(f":white_check_mark: {host} resolves")
         else:
             error_console.print(f":x: {host} not in hosts file")
+            good = False
+    return good
 
 
 @diag_cli.command(rich_help_panel="CImpl Diagnostic Commands")
@@ -226,6 +229,7 @@ def readyandavailable(data):
 @diag_cli.command(rich_help_panel="CImpl Diagnostic Commands")
 def check_running(
     version: str,
+    minikube: bool,
     sleep: int = 120,
     bootstrap_sleep: int = 30,
     max_wait: int = 50,
@@ -299,7 +303,7 @@ def check_running(
             count = len(pods_not_ready.strip().split(" "))
             duration_str = utils.convert_time(duration)
             console.log(
-                f":person_running: Pods not yet ready: {count}, elapsed: {duration_str}, version: {version}"
+                f":person_running: Pods not yet ready: {count}, elapsed: {duration_str}, version: {version}, { 'Minikube' if minikube else 'Kubernetes' }"
             )
             for _ in rich.progress.track(
                 range(sleep),

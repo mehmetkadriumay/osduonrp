@@ -35,6 +35,17 @@ def docker_info_ncpu():
         return 0
 
 
+def docker_mem_gb():
+    ram = docker_info_memtotal()
+    if ram == 0:
+        error_console.print(
+            ":x: Error getting RAM setting. Is the docker daemon running?"
+        )
+        raise typer.Exit(1)
+    mem_gb = ram / 1024 / 1024 / 1024
+    return mem_gb
+
+
 def docker_info(outputformat):
     """
     Return docker info

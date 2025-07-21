@@ -86,6 +86,15 @@ def kube_allocatable_memory():
     return kube_status().allocatable["memory"]
 
 
+def kube_allocatable_memory_gb():
+    k8s_memory = kube_allocatable_memory()
+    if k8s_memory.endswith("Ki"):
+        ki = int(k8s_memory.replace("Ki", ""))
+        return ki / 1024 / 1024
+    else:
+        return None
+
+
 def kube_istio_ready():
     output = subprocess.Popen(
         [
@@ -101,7 +110,10 @@ def kube_istio_ready():
         ],
         stdout=subprocess.PIPE,
     ).communicate()[0]
-    return output.decode("ascii").strip()
+    retval = output.decode("ascii").strip()
+    console.print(f"kube_istio_ready: {retval}")
+    logger.info(f"kube_istio_ready: {retval}")
+    return retval
 
 
 def kubepod_name(type):
@@ -577,12 +589,13 @@ volumeBindingMode: Immediate # Or WaitForFirstConsumer
     """.strip()
 
     filename = Path.home().joinpath("sc.yaml")
+    console.log(f"Writing to {filename}")
     with open(filename, "w") as f:
         f.write(yaml)
 
     console.log(f"Adding Storage Class {name}...")
     try:
-        run_shell_command(f"kubectl apply -f {filename}")
+        run_shell_command(f"kubectl apply -f '{filename}'")
         console.log(f":thumbs_up: Storage Class {name} Added")
         os.remove(filename)  # Clean up the temporary file
     except subprocess.CalledProcessError as err:

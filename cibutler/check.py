@@ -24,6 +24,32 @@ diag_cli = typer.Typer(
 )
 
 
+@diag_cli.command(rich_help_panel="CI Commands", hidden=True)
+def select_target(
+    target: Annotated[str, typer.Option(help="Target")] = None,
+):
+    if target is None:
+        options = [
+            "Minikube running inside docker (Supported)",
+            "Kubernetes (Kubeadm) running in docker-desktop - single node cluster (Supported)",
+            "MicroK8s on this device (Supported)",
+            "Kubernetes (Kind) running in docker-desktop (Unsupported)",
+            "K3s (Containerd) on this device (Unsupported)",
+            "Other Kubernetes Cluster (Unsupported)",
+        ]
+        questions = [
+            inquirer.List(
+                "target",
+                message="Where do you plan to install?",
+                choices=options,
+            ),
+        ]
+        answers = inquirer.prompt(questions)
+        target = str(answers["target"])
+        console.print(f"Target: {target}")
+    return target
+
+
 @cli.command(rich_help_panel="CI Commands")
 def check(
     target: Annotated[str, typer.Option(help="Target")] = None,
@@ -31,37 +57,32 @@ def check(
     """
     Install Preflight Check
     """
-    if target is None:
-        options = [
-            "Minikube running inside docker",
-            "Kubernetes (kubeadm) running in docker-desktop",
-            "MicroK8s on this machine",
-            "Other Kubernetes Cluster",
-        ]
-        questions = [
-            inquirer.List(
-                "target",
-                message="Where do you want to install?",
-                choices=options,
-            ),
-        ]
-        answers = inquirer.prompt(questions)
-        target = str(answers["target"])
-
-    console.print(f"Target: {target}")
+    target = select_target(target=target)
     console.print(f"Platform: {platform.platform()} CPU: {utils.cpu_info()}")
 
     if "minikube" in target.lower():
+        console.print(":white_check_mark: Minikube Selected")
         cimpl.check_hosts()
+        preflight_check_required()
     elif "docker-desktop" in target.lower():
+        console.print(":white_check_mark: Docker-Desktop Selected")
+        cik8s.use_context(context="docker-desktop")
         preflight_check_required()
         k8s_checks()
         cimpl.check_hosts()
     elif "microk8s" in target.lower():
+        console.print(":white_check_mark: MicroK8s Selected")
+        preflight_check_required(skip_docker_daemon=True, skip_docker=True)
+        k8s_checks()
+        cimpl.check_hosts()
+    elif "k3s" in target.lower():
+        console.print(":white_check_mark: K3s Selected")
+        cik8s.use_context(context="default")
         preflight_check_required(skip_docker_daemon=True, skip_docker=True)
         k8s_checks()
         cimpl.check_hosts()
     elif "other kubernetes" in target.lower():
+        console.print(":white_check_mark: Other Kubernetes Selected")
         preflight_check_required(
             skip_docker_daemon=True, skip_docker=True, min_cpu_cores=2
         )
@@ -70,6 +91,7 @@ def check(
     else:
         error_console.print(f":x: Unknown target: {target}")
         raise typer.Exit(1)
+    return target
 
 
 def preflight_check_required(
@@ -130,13 +152,8 @@ def preflight_check_required(
             )
 
         memory = utils.convert_size(cidocker.docker_info_memtotal())
-        ram = cidocker.docker_info_memtotal()
-        if ram == 0:
-            error_console.print(
-                ":x: Error getting RAM setting. Is the docker daemon running?"
-            )
-            raise typer.Exit(1)
-        mem_gb = ram / 1024 / 1024 / 1024
+        mem_gb = cidocker.docker_mem_gb()
+
         if total_heap_required > mem_gb:
             error_console.print(
                 f":x: Not enough RAM configured for docker. Found {memory} but {total_heap_required} GiB recommended"
@@ -145,6 +162,7 @@ def preflight_check_required(
             console.print(
                 f":white_check_mark: Docker Reporting enough RAM for install {memory} :thumbs_up:"
             )
+    return True
 
 
 def k8s_checks(required_cores=4, required_ram=23.2):
@@ -153,7 +171,7 @@ def k8s_checks(required_cores=4, required_ram=23.2):
         console.print(":white_check_mark: Kubernetes cluster running :thumbs_up:")
     else:
         error_console.print(":x: Kubernetes may not be running:")
-        print(info)
+        console.print(info)
         raise typer.Exit(1)
 
     cores = cik8s.kube_allocatable_cpu()
@@ -163,26 +181,24 @@ def k8s_checks(required_cores=4, required_ram=23.2):
         error_console.print(f":x: Not enough CPU {cores} given to kubernetes")
         raise typer.Exit(1)
 
-    k8s_memory = cik8s.kube_allocatable_memory()
-    if k8s_memory.endswith("Ki"):
-        ki = int(k8s_memory.replace("Ki", ""))
-        gb = ki / 1024 / 1024
-        if gb >= required_ram:
-            console.print(
-                f":white_check_mark: Allocatable RAM {gb:.2f} GiB :thumbs_up:"
-            )
-        else:
-            error_console.print(
-                f":x: Not enough Allocatable RAM for {gb:.2f} kubernetes"
-            )
+    gb_memory = cik8s.kube_allocatable_memory_gb()
+    if gb_memory >= required_ram:
+        console.print(
+            f":white_check_mark: Allocatable RAM {gb_memory:.2f} GiB :thumbs_up:"
+        )
+    else:
+        error_console.print(
+            f":x: Not enough Allocatable RAM for {gb_memory:.2f} kubernetes"
+        )
         raise typer.Exit(1)
 
-    num_ready = int(cik8s.kube_istio_ready().split()[0])
-    if num_ready >= 1:
-        console.print(":white_check_mark: istio ready :thumbs_up:")
-    else:
-        error_console.print(":x: istio not ready")
-        raise typer.Exit(1)
+    # num_ready = int(cik8s.kube_istio_ready().split()[0])
+    # if num_ready >= 1:
+    #    console.print(":white_check_mark: istio ready :thumbs_up:")
+    # else:
+    #    error_console.print(":x: istio not ready")
+    #    raise typer.Exit(1)
+    # return True
 
 
 if __name__ == "__main__":

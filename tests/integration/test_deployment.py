@@ -19,8 +19,14 @@ def test_delete():
 
 
 @pytest.mark.skipif(sys.version_info < (3, 11), reason="requires python3.11 or later")
-def test_check():
-    result = runner.invoke(cli, ["check", "--all"])
+def test_check_minikube():
+    result = runner.invoke(cli, ["check", "--target", "minikube"])
+    assert result.exit_code == 0
+
+
+@pytest.mark.skipif(sys.version_info < (3, 11), reason="requires python3.11 or later")
+def test_check_docker_desktop():
+    result = runner.invoke(cli, ["check", "--target", "docker-desktop"])
     assert result.exit_code == 0
 
 
@@ -33,8 +39,6 @@ def test_install_on_kubernetes():
             "-k",
             "--data-load-flag",
             "dd-reference",
-            "--max-memory",
-            "--max-cpu",
             "--force",
         ],
     )
