@@ -4,7 +4,7 @@
 !!! example "Support"
     Currently CI Butler supports:
 
-    - **Minikube with Docker**,
+    - **[Minikube](https://minikube.sigs.k8s.io/) with Docker**,
     - **Kubernetes with Docker-Desktop** (built-in kubernetes using a singe-node cluster using [kubeadm](https://kubernetes.io/docs/reference/setup-tools/kubeadm/)) and
     - **[MicroK8s](https://microk8s.io/)** (Ubuntu only, but Rocky Linux 9 on roadmap).
 
@@ -17,8 +17,8 @@
     However in future support could be added for:
 
     - Namespace separation (allowing multiple deployments) at least not in default namespace,
-    - Deploying to other small local kubernetes (kind, k3s, etc),
-    - Other remote kubernetes deployments (even cloud based),
+    - Deploying to other small local kubernetes (kind, [k3s](https://k3s.io/), etc),
+    - Other remote kubernetes deployments (even cloud based, like [GKE](https://cloud.google.com/kubernetes-engine)),
     - Minikube support for more than docker driver (i.e. QEMU, Hyperkit, Hyper-V, KVM, Parallels, Podman, VirtualBox, VMware Fusion/Workstation, etc.)
 
     If you're interested in one of these please open an [issue](https://community.opengroup.org/osdu/ui/cibutler/-/issues/) to request it.
@@ -36,7 +36,7 @@
 
     - MacOS Sequoia 15.2 and later
     - Windows11 - some users have reported needing [Microsoft C++ build tools](https://visualstudio.microsoft.com/visual-cpp-build-tools/) installed.
-    - Ubuntu
+    - Ubuntu Linux
 
 
 ## Installation Instructions
@@ -148,14 +148,8 @@ When running cibutler CI Butler will try to log to `cibutler.log` in your home d
 
 ## CI Butler Check Prerequisites
 
-This is required if you are Deploying CImpl locally on minikube
-
 ``` bash title="Check Prerequisites"
 cibutler check
-```
-This is required if you are Deploying CImpl locally on Kubernetes with Docker Desktop
-``` bash title="Check Prerequisites"
-cibutler check --all
 ```
 
 If no issues are reported you should have a successful deployment of OSDU CImpl
@@ -184,7 +178,7 @@ cibutler install --data-load-flag=tno-volve-reference
 If you want to have a more automated install without data loading:
 
 ``` bash title="Install without data loading in one step"
-cibutler install --data-load-flag=skip
+cibutler install --data-load-flag=skip --force
 ```
 You can also add a `--quiet` less output.
 
@@ -192,6 +186,7 @@ For more details on what happens in the CImpl install process see [install proce
 For full options on install see [Command Reference](./commands_reference.md).
 
 ## Install CImpl on Kubernetes with Docker Desktop
+
 Make sure you have your kubernetes context to `docker-desktop`.
 You can verify this with 
 ```
@@ -209,11 +204,11 @@ cibutler install -k
 
 ## Confirm things are working
 
-### Tunnel
+### Minikube Tunnel
 
 !!! info "Tunnel"
 
-    Tunnelling is only required when you are deploying on minikube.
+    Tunnelling is only required when you are deploying on Minikube.
 
     Once you have CImpl deployed locally (with our without data) on minikube you'll need to run tunnel to be able to redirect your network to get to kubernetes pods running in the minikube docker container. Tunnel does require administrative privileges (via sudo on Mac and Linux).
 

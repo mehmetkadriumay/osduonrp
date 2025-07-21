@@ -79,7 +79,11 @@ def kube_allocatable():
 
 
 def kube_allocatable_cpu():
-    return int(kube_status().allocatable["cpu"])
+    cpu = kube_status().allocatable["cpu"]
+    if "m" in cpu:
+        return cpu
+    else:
+        return int(kube_status().allocatable["cpu"])
 
 
 def kube_allocatable_memory():

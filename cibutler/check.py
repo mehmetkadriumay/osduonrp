@@ -86,7 +86,7 @@ def check(
         preflight_check_required(
             skip_docker_daemon=True, skip_docker=True, min_cpu_cores=2
         )
-        k8s_checks()
+        k8s_checks(ignore_ram=True)
         cimpl.check_hosts()
     else:
         error_console.print(f":x: Unknown target: {target}")
@@ -165,7 +165,7 @@ def preflight_check_required(
     return True
 
 
-def k8s_checks(required_cores=4, required_ram=23.2):
+def k8s_checks(required_cores=4, required_ram=23.2, ignore_ram=False):
     info = cik8s.cluster_info()
     if info.count("running") >= 2:
         console.print(":white_check_mark: Kubernetes cluster running :thumbs_up:")
@@ -175,7 +175,9 @@ def k8s_checks(required_cores=4, required_ram=23.2):
         raise typer.Exit(1)
 
     cores = cik8s.kube_allocatable_cpu()
-    if cores >= required_cores:
+    if "m" in cores:
+        console.print(f":warning: Kubernetes CPU cores {cores}")
+    elif cores >= required_cores:
         console.print(f":white_check_mark: Kubernetes CPU cores {cores} :thumbs_up:")
     else:
         error_console.print(f":x: Not enough CPU {cores} given to kubernetes")
@@ -185,6 +187,10 @@ def k8s_checks(required_cores=4, required_ram=23.2):
     if gb_memory >= required_ram:
         console.print(
             f":white_check_mark: Allocatable RAM {gb_memory:.2f} GiB :thumbs_up:"
+        )
+    elif ignore_ram:
+        error_console.print(
+            f":warning: Possible not enough Allocatable RAM {gb_memory:.2f} in kubernetes"
         )
     else:
         error_console.print(

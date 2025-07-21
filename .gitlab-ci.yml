@@ -138,7 +138,7 @@ publish-release-notes:
           url: "https://$CI_REGISTRY_IMAGE/$CI_COMMIT_REF_SLUG:$CI_COMMIT_SHA"
   when: manual
 
-test-deployment-of-package:
+test-deployment-of-package-dind:
   stage: deploy
   needs:
     - job: publish-python-package
@@ -156,6 +156,29 @@ test-deployment-of-package:
     - $PACKAGE --help
     - $PACKAGE check --target minikube
     #- $PACKAGE config-minikube --max-cpu --max-memory
+  
+test-deployment-on-minkube:
+  stage: deploy
+  image: ubuntu
+  tags: ["osdu-himem"]
+  allow_failure: true
+  script:
+    - export PATH=$PATH:$HOME/.local/bin
+    - apt install -y curl python3 pipx
+    - curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+    - install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
+    - curl -fsSL -o get_helm.sh https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3
+    - chmod 700 get_helm.sh
+    - ./get_helm.sh
+    - curl -LO https://github.com/kubernetes/minikube/releases/latest/download/minikube-linux-amd64
+    - install minikube-linux-amd64 /usr/local/bin/minikube && rm minikube-linux-amd64
+    - pipx install cibutler --index-url https://community.opengroup.org/api/v4/projects/1558/packages/pypi/simple --pip-args="--extra-index-url=https://community.opengroup.org/api/v4/projects/148/packages/pypi/simple"
+    #- curl -LsSf https://astral.sh/uv/install.sh | sh
+    #- export UV_LINK_MODE=copyexport 
+    - $PACKAGE --help
+    - $PACKAGE check --target minikube
+    #- $PACKAGE config-minikube --max-cpu --max-memory
+  when: manual
 
 include:
   - project: "osdu/platform/ci-cd-pipelines"

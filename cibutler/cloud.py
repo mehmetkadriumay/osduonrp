@@ -262,9 +262,29 @@ def gcloud_instance_delete(
 
 
 @diag_cli.command(rich_help_panel="Cloud Diagnostic Commands")
+def gcloud_cluster_create(
+    name: Annotated[str, typer.Argument(help="cluster name", envvar="CLUSTER")],
+    zone: Annotated[
+        str, typer.Option(help="GCP Zone", envvar="ZONE")
+    ] = "us-central1-b",
+):
+    run_shell_command(f"gcloud container clusters create {name} --zone={zone}")
+
+
+@diag_cli.command(rich_help_panel="Cloud Diagnostic Commands")
+def gcloud_cluster_delete(
+    name: Annotated[str, typer.Argument(help="cluster name", envvar="CLUSTER")],
+    zone: Annotated[
+        str, typer.Option(help="GCP Zone", envvar="ZONE")
+    ] = "us-central1-b",
+):
+    run_shell_command(f"gcloud container clusters delete {name} --zone={zone}")
+
+
+@diag_cli.command(rich_help_panel="Cloud Diagnostic Commands")
 def cloud_install_cibutler(
     host: Annotated[str, typer.Argument(help="host", envvar="HOST")] = None,
-    target: Annotated[str, typer.Argument(help="target")] = "microk8s",
+    target: Annotated[str, typer.Option(help="target")] = "microk8s",
 ):
     """
     Run CI Butler install on remote linux host via ssh
