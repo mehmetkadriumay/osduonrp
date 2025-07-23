@@ -112,6 +112,10 @@ def minikube_config_set(
             )
     except subprocess.CalledProcessError as err:
         return str(err)
+    except FileNotFoundError as err:
+        error_console.print(f"Unexpected FileNotFoundError: {err}")
+        logger.fatal(f"Unexpected FileNotFoundError: {err}")
+        raise typer.Exit(1)
     else:
         return output.stdout.decode("ascii").strip()
 
@@ -165,6 +169,9 @@ def minikube_start(
         console.print(
             f":fire: Starting minikube with {container_runtime} {kubernetes_version} kubernetes with {nodes} node(s)..."
         )
+        if force_opt:
+            console.print("[yellow]:warning:[/yellow] force start enabled")
+
         call(
             [
                 "minikube",
@@ -189,9 +196,9 @@ def minikube_delete(profile: str = None):
 
 def minikube_status(profile: str = None):
     if profile:
-        call(["minikube", "status", "-p", profile])
+        return call(["minikube", "status", "-p", profile])
     else:
-        call(["minikube", "status"])
+        return call(["minikube", "status"])
 
 
 @cli.command(rich_help_panel="CI Commands")

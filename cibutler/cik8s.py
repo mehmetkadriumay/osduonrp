@@ -66,12 +66,24 @@ def list_nodes():
     config.load_kube_config()
     k8s_api = client.CoreV1Api()
     response = k8s_api.list_node()
-    # console.print(response)
+    logger.debug(response)
+    return response
+
+
+def node_status(name: str):
+    config.load_kube_config()
+    k8s_api = client.CoreV1Api()
+    response = k8s_api.read_node_status(name)
+    logger.info(response)
     return response
 
 
 def kube_status():
     return list_nodes().items[0].status
+
+
+def kube_log_node_info():
+    logger.info(kube_status().node_info)
 
 
 def kube_allocatable():
@@ -90,8 +102,21 @@ def kube_allocatable_memory():
     return kube_status().allocatable["memory"]
 
 
+def kube_capacity_memory():
+    return kube_status().capacity["memory"]
+
+
 def kube_allocatable_memory_gb():
     k8s_memory = kube_allocatable_memory()
+    if k8s_memory.endswith("Ki"):
+        ki = int(k8s_memory.replace("Ki", ""))
+        return ki / 1024 / 1024
+    else:
+        return None
+
+
+def kube_capacity_memory_gb():
+    k8s_memory = kube_capacity_memory()
     if k8s_memory.endswith("Ki"):
         ki = int(k8s_memory.replace("Ki", ""))
         return ki / 1024 / 1024

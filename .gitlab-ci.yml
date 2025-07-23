@@ -1,5 +1,5 @@
 variables:
-  UV_VERSION: 0.5.5
+  UV_VERSION: 0.8.0
   PYTHON_VERSION: 3.13
   BASE_LAYER: bookworm-slim
   PACKAGE: cibutler
@@ -138,33 +138,19 @@ publish-release-notes:
           url: "https://$CI_REGISTRY_IMAGE/$CI_COMMIT_REF_SLUG:$CI_COMMIT_SHA"
   when: manual
 
-test-deployment-of-package-dind:
-  stage: deploy
-  needs:
-    - job: publish-python-package
-      optional: true
-  image: docker:dind
-  allow_failure: true
-  script:
-    - export PATH=$PATH:$HOME/.local/bin
-    - apk add curl kubectl python3 helm pipx
-    - curl -LO https://github.com/kubernetes/minikube/releases/latest/download/minikube-linux-amd64
-    - install minikube-linux-amd64 /usr/local/bin/minikube && rm minikube-linux-amd64
-    - pipx install cibutler --index-url https://community.opengroup.org/api/v4/projects/1558/packages/pypi/simple --pip-args="--extra-index-url=https://community.opengroup.org/api/v4/projects/148/packages/pypi/simple"
-    #- curl -LsSf https://astral.sh/uv/install.sh | sh
-    #- export UV_LINK_MODE=copyexport 
-    - $PACKAGE --help
-    - $PACKAGE check --target minikube
-    #- $PACKAGE config-minikube --max-cpu --max-memory
-  
-test-deployment-on-minkube:
+test-deployment-default-on-minkube:
   stage: deploy
   image: ubuntu
   tags: ["osdu-himem"]
   allow_failure: true
   script:
+    - uname -a
     - export PATH=$PATH:$HOME/.local/bin
-    - apt install -y curl python3 pipx
+    - apt-get update
+    - apt-get install -y curl
+    - echo $(curl ifconfig.me)
+    - apt-get install -y python3 pipx git coreutils ca-certificates 
+    - pipx install uv
     - curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
     - install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
     - curl -fsSL -o get_helm.sh https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3
@@ -173,12 +159,156 @@ test-deployment-on-minkube:
     - curl -LO https://github.com/kubernetes/minikube/releases/latest/download/minikube-linux-amd64
     - install minikube-linux-amd64 /usr/local/bin/minikube && rm minikube-linux-amd64
     - pipx install cibutler --index-url https://community.opengroup.org/api/v4/projects/1558/packages/pypi/simple --pip-args="--extra-index-url=https://community.opengroup.org/api/v4/projects/148/packages/pypi/simple"
-    #- curl -LsSf https://astral.sh/uv/install.sh | sh
-    #- export UV_LINK_MODE=copyexport 
+    - $PACKAGE --version
+    - install -m 0755 -d /etc/apt/keyrings
+    - curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
+    - chmod a+r /etc/apt/keyrings/docker.asc
+    - apt install -y apt-transport-https software-properties-common
+    - curl -fsSL https://download.docker.com/linux/ubuntu/gpg | apt-key add -
+    - add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu focal stable"
+    - apt-cache policy docker-ce
+    - apt install -y docker-ce
+    - docker info
+    - docker ps
+    - pipx install hostsman
+    - hostsman -i osdu.localhost:127.0.0.1 osdu.local:127.0.0.1 airflow.localhost:127.0.0.1 airflow.local:127.0.0.1 minio.localhost:127.0.0.1 minio.local:127.0.0.1 keycloak.localhost:127.0.0.1 keycloak.local:127.0.0.1
     - $PACKAGE --help
-    - $PACKAGE check --target minikube
-    #- $PACKAGE config-minikube --max-cpu --max-memory
-  when: manual
+    - minikube delete || echo "minikube delete failed"
+    - uv run $PACKAGE --version
+    - uv run $PACKAGE check --target minikube || echo "check failed"
+    - uv run $PACKAGE install --force --max-memory --max-cpu --minikube --quiet -d skip || echo "install failed"; result=$?
+    - LOGFILE=$(uv run $PACKAGE diag logfile)
+    - cp $LOGFILE cibutler.log
+    - uv run $PACKAGE delete --force || echo "delete failed"
+    - "[ $result == 0 ]"
+  needs: []
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      when: manual
+      allow_failure: true
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      when: manual
+  artifacts:
+    paths:
+      - cibutler.log
+    expire_in: 8 hrs
+
+test-deployment-M24-on-minkube:
+  stage: deploy
+  image: ubuntu
+  tags: ["osdu-himem"]
+  allow_failure: true
+  script:
+    - uname -a
+    - export PATH=$PATH:$HOME/.local/bin
+    - apt-get update
+    - apt-get install -y curl
+    - echo $(curl ifconfig.me)
+    - apt-get install -y python3 pipx git coreutils ca-certificates 
+    - pipx install uv
+    - curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+    - install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
+    - curl -fsSL -o get_helm.sh https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3
+    - chmod 700 get_helm.sh
+    - ./get_helm.sh
+    - curl -LO https://github.com/kubernetes/minikube/releases/latest/download/minikube-linux-amd64
+    - install minikube-linux-amd64 /usr/local/bin/minikube && rm minikube-linux-amd64
+    - pipx install cibutler --index-url https://community.opengroup.org/api/v4/projects/1558/packages/pypi/simple --pip-args="--extra-index-url=https://community.opengroup.org/api/v4/projects/148/packages/pypi/simple"
+    - $PACKAGE --version
+    - install -m 0755 -d /etc/apt/keyrings
+    - curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
+    - chmod a+r /etc/apt/keyrings/docker.asc
+    - apt install -y apt-transport-https software-properties-common
+    - curl -fsSL https://download.docker.com/linux/ubuntu/gpg | apt-key add -
+    - add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu focal stable"
+    - apt-cache policy docker-ce
+    - apt install -y docker-ce
+    - docker info
+    - docker ps
+    - pipx install hostsman
+    - hostsman -i osdu.localhost:127.0.0.1 osdu.local:127.0.0.1 airflow.localhost:127.0.0.1 airflow.local:127.0.0.1 minio.localhost:127.0.0.1 minio.local:127.0.0.1 keycloak.localhost:127.0.0.1 keycloak.local:127.0.0.1
+    - $PACKAGE --help
+    - minikube delete || echo "minikube delete failed"
+    - uv run $PACKAGE --version
+    - uv run $PACKAGE check --target minikube || echo "check failed"
+    - uv run $PACKAGE install --force --max-memory --max-cpu --minikube --quiet -d skip --version=0.27.0-local --source=oci://us-central1-docker.pkg.dev/or2-msq-gnrg-osdu-mp-t1iylu/cimpl/helm/osdu-cimpl|| echo "install failed"; result=$?
+    - LOGFILE=$(uv run $PACKAGE diag logfile)
+    - cp $LOGFILE cibutler.log
+    - uv run $PACKAGE delete --force || echo "delete failed"
+    - "[ $result == 0 ]"
+  needs: []
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      when: manual
+      allow_failure: true
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      when: manual
+  artifacts:
+    paths:
+      - cibutler.log
+    expire_in: 8 hrs
+ 
+test-deployment-default-on-k3d:
+  stage: deploy
+  image: ubuntu
+  tags: ["osdu-himem"]
+  allow_failure: true
+  script:
+    - uname -a
+    - export PATH=$PATH:$HOME/.local/bin
+    - apt-get update
+    - apt-get install -y curl
+    - echo $(curl ifconfig.me)
+    - apt-get install -y python3 pipx git coreutils ca-certificates 
+    - pipx install uv
+    - curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+    - install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
+    - curl -fsSL -o get_helm.sh https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3
+    - chmod 700 get_helm.sh
+    - ./get_helm.sh
+    - curl -LO https://github.com/kubernetes/minikube/releases/latest/download/minikube-linux-amd64
+    - install minikube-linux-amd64 /usr/local/bin/minikube && rm minikube-linux-amd64
+    - pipx install cibutler --index-url https://community.opengroup.org/api/v4/projects/1558/packages/pypi/simple --pip-args="--extra-index-url=https://community.opengroup.org/api/v4/projects/148/packages/pypi/simple"
+    - $PACKAGE --version
+    - uv run $PACKAGE --version
+    - install -m 0755 -d /etc/apt/keyrings
+    - curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
+    - chmod a+r /etc/apt/keyrings/docker.asc
+    - apt install -y apt-transport-https software-properties-common
+    - curl -fsSL https://download.docker.com/linux/ubuntu/gpg | apt-key add -
+    - add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu focal stable"
+    - apt-cache policy docker-ce
+    - apt install -y docker-ce
+    - docker info
+    - docker ps
+    - pipx install hostsman
+    - hostsman -i osdu.localhost:127.0.0.1 osdu.local:127.0.0.1 airflow.localhost:127.0.0.1 airflow.local:127.0.0.1 minio.localhost:127.0.0.1 minio.local:127.0.0.1 keycloak.localhost:127.0.0.1 keycloak.local:127.0.0.1
+    - uv run $PACKAGE --help
+    - curl -s https://raw.githubusercontent.com/k3d-io/k3d/main/install.sh | bash
+    - k3d --version
+    - k3d cluster delete osdu || echo "delete failed"
+    - k3d --verbose cluster create osdu
+    - k3d cluster ls
+    - kubectl get nodes
+    - uv run $PACKAGE check --target k3d || echo "check failed"
+    - uv run $PACKAGE install --force --kubernetes --quiet -d skip || echo "install failed"; result=$?
+    - uv run $PACKAGE status --threshold=5
+    - LOGFILE=$(uv run $PACKAGE diag logfile)
+    - cp $LOGFILE cibutler.log
+    - uv run $PACKAGE delete --force || echo "delete failed"
+    - k3d cluster delete osdu || echo "delete failed"
+    - "[ $result == 0 ]"
+  needs: []
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      when: manual
+      allow_failure: true
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      when: manual
+  artifacts:
+    paths:
+      - cibutler.log
+    expire_in: 8 hrs
 
 include:
   - project: "osdu/platform/ci-cd-pipelines"

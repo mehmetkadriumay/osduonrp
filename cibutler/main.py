@@ -35,7 +35,8 @@ import cibutler.cihelm as cihelm
 import cibutler.docs as docs
 import cibutler.update as update
 import cibutler.cloud as cloud
-import cibutler.tf as tf
+
+# import cibutler.tf as tf
 import cibutler.conf as conf
 import cibutler.debug as cidebug
 import cibutler.config as config
@@ -48,7 +49,7 @@ home = str(Path.home())
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s %(levelname)s %(module)s %(funcName)s %(lineno)d %(message)s",
-    filename=f"{home}/cibutler.log",
+    filename=f"{home}/{conf.logfile}",
     filemode="a",
     encoding="utf-8",
 )
@@ -85,7 +86,7 @@ diag_cli.registered_commands += cik8s.diag_cli.registered_commands
 diag_cli.registered_commands += ciminikube.diag_cli.registered_commands
 diag_cli.registered_commands += cidocker.diag_cli.registered_commands
 diag_cli.registered_commands += cloud.diag_cli.registered_commands
-diag_cli.registered_commands += tf.diag_cli.registered_commands
+# diag_cli.registered_commands += tf.diag_cli.registered_commands
 diag_cli.registered_commands += cidebug.diag_cli.registered_commands
 diag_cli.registered_commands += config.diag_cli.registered_commands
 
@@ -110,6 +111,15 @@ def _version_callback(value: bool):
     if value:
         console.print(f"cibutler Version: {__version__} ({cibutler_version})")
         raise typer.Exit()
+
+
+@diag_cli.command(rich_help_panel="Diagnostic Commands", hidden=True)
+def logfile():
+    """
+    Automation for getting logfile
+    """
+    home = str(Path.home())
+    console.print(f"{home}/{conf.logfile}")
 
 
 @diag_cli.command(rich_help_panel="Helm Diagnostic Commands")
@@ -277,6 +287,7 @@ def envfile(
     downloader.download([url], "./")
 
 
+@diag_cli.command(rich_help_panel="Related Commands", hidden=True)
 def success_message(
     version: str,
     source: str,
@@ -287,18 +298,25 @@ def success_message(
     percent_memory: float,
     disk_size: int,
 ):
-    gb_memory = cik8s.kube_allocatable_memory_gb()
+    allocatable_gb_memory = cik8s.kube_allocatable_memory_gb()
+    capacity_gb_memory = cik8s.kube_capacity_memory_gb()
+    allocatable_cpu = cik8s.kube_allocatable_cpu()
+
     output = f"""
     [yellow]Please report the following information to #cap-cibutler slack channel:[/yellow]
 
     [green]CImpl Installation Summary:[/green]
-    [bold]CIButler Version:[/bold] {__version__} {cibutler_version} on {platform.platform()}
+    [bold]CIButler Version:[/bold] {__version__} {cibutler_version}
+    [bold]Platform:[/bold] {platform.platform()}
     [bold]Helm Version:[/bold] {version}
     [bold]Helm Source:[/bold] {source}
     [bold]Installation time:[/bold] {duration_str}
     [bold]Minikube:[/bold] {minikube}, [bold]Kubernetes:[/bold] {not minikube}
-    Percent Memory: {percent_memory}, Max CPU: {max_cpu}, Max Memory: {max_memory}, Disk Size: {disk_size} GB, K8s RAM: {gb_memory:.2f} GiB
+    [bold]Kubernetes RAM:[/bold] {allocatable_gb_memory:.2f}/{capacity_gb_memory:.2f} GiB [bold]CPU:[/bold] {allocatable_cpu}
     """
+    if minikube:
+        output += f"Minikube %RAM: {percent_memory}, MaxCPU: {max_cpu}, MaxMem: {max_memory}, Disk Size: {disk_size} GB"
+
     console.print(
         Panel(
             output,
@@ -432,8 +450,10 @@ def install(
 
     if not data_load_flag:
         if force:
-            console.print(":warning: No data load option provided.")
             data_load_flag = get_data_load_option(defaults=True)
+            console.print(
+                f":warning: No data load option provided, defaulting to {data_load_flag}"
+            )
         else:
             data_load_flag = get_data_load_option()
 
@@ -481,6 +501,11 @@ def install(
             disk_size=disk_size,
         )
         ciminikube.minikube_start(force=force)
+        if ciminikube.minikube_status():
+            error_console.print(":x: Minikube in error state")
+            raise typer.Exit(1)
+        else:
+            console.print(":smile: Minikube OK")
 
     console.log("Checking if storage class is needed in Kubernetes...")
     cik8s.add_sc(ignore=True)
@@ -488,6 +513,7 @@ def install(
     if not check_istio() and not install_istio():
         logger.error("Installation of istio has failed")
         error_console.log("Installation istio has failed")
+        cik8s.kube_log_node_info()
         raise typer.Exit(1)
 
     install_cimpl(version=version, source=source, configured_options=configured_options)
@@ -505,6 +531,7 @@ def install(
             f"Installation of {version} has failed on {platform.platform()}"
         )
         logger.error(f"Installation of {version} has failed on {platform.platform()}")
+        cik8s.kube_log_node_info()
         raise typer.Exit(1)
 
     duration = time.time() - start
@@ -512,6 +539,8 @@ def install(
     console.log(
         f"CImpl helm: {version} installed in {duration_str}.\nReady to install Notebook and Upload data\n"
     )
+
+    cik8s.kube_log_node_info()
 
     success_message(
         version=version,
@@ -546,6 +575,7 @@ def install(
 def data_load(data_load_flag, data_source, data_version, wait_for_complete=True):
     load_work_products = False
     if data_load_flag and "skip" in data_load_flag:
+        console.log("Skipping data load")
         return
     elif data_load_flag and "prompt" not in data_load_flag:
         if "all" in data_load_flag:

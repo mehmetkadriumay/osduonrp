@@ -35,6 +35,7 @@ def select_target(
             "MicroK8s on this device (Supported)",
             "Kubernetes (Kind) running in docker-desktop (Unsupported)",
             "K3s (Containerd) on this device (Unsupported)",
+            "K3d on this device (Unsupported)",
             "Other Kubernetes Cluster (Unsupported)",
         ]
         questions = [
@@ -62,8 +63,8 @@ def check(
 
     if "minikube" in target.lower():
         console.print(":white_check_mark: Minikube Selected")
-        cimpl.check_hosts()
         preflight_check_required()
+        cimpl.check_hosts()
     elif "docker-desktop" in target.lower():
         console.print(":white_check_mark: Docker-Desktop Selected")
         cik8s.use_context(context="docker-desktop")
@@ -76,10 +77,17 @@ def check(
         k8s_checks()
         cimpl.check_hosts()
     elif "k3s" in target.lower():
-        console.print(":white_check_mark: K3s Selected")
+        console.print(
+            ":white_check_mark: K3s (Rancher Lab’s minimal Kubernetes distribution) Selected"
+        )
         cik8s.use_context(context="default")
         preflight_check_required(skip_docker_daemon=True, skip_docker=True)
         k8s_checks()
+        cimpl.check_hosts()
+    elif "k3d" in target.lower():
+        console.print(":white_check_mark: K3d (K3s in Docker) Selected")
+        cimpl.check_hosts()
+        preflight_check_required()
         cimpl.check_hosts()
     elif "other kubernetes" in target.lower():
         console.print(":white_check_mark: Other Kubernetes Selected")
@@ -175,10 +183,11 @@ def k8s_checks(required_cores=4, required_ram=23.2, ignore_ram=False):
         raise typer.Exit(1)
 
     cores = cik8s.kube_allocatable_cpu()
-    if "m" in cores:
-        console.print(f":warning: Kubernetes CPU cores {cores}")
-    elif cores >= required_cores:
+    console.print(f":info: Kubernetes CPU cores {cores}")
+    if (isinstance(cores, int)) and cores >= required_cores:
         console.print(f":white_check_mark: Kubernetes CPU cores {cores} :thumbs_up:")
+    elif (isinstance(cores, str)) and "m" in cores:
+        console.print(f":warning: Kubernetes CPU cores {cores}")
     else:
         error_console.print(f":x: Not enough CPU {cores} given to kubernetes")
         raise typer.Exit(1)

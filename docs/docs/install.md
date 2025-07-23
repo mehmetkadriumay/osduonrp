@@ -17,7 +17,7 @@
     However in future support could be added for:
 
     - Namespace separation (allowing multiple deployments) at least not in default namespace,
-    - Deploying to other small local kubernetes (kind, [k3s](https://k3s.io/), etc),
+    - Deploying to other small local kubernetes ([kind](https://kind.sigs.k8s.io/), [k3s](https://k3s.io/), [k3d](https://k3d.io/stable/), etc),
     - Other remote kubernetes deployments (even cloud based, like [GKE](https://cloud.google.com/kubernetes-engine)),
     - Minikube support for more than docker driver (i.e. QEMU, Hyperkit, Hyper-V, KVM, Parallels, Podman, VirtualBox, VMware Fusion/Workstation, etc.)
 
@@ -140,6 +140,11 @@ Here are some options:
 To install CI Butler we recommend using pipx:
 ``` bash title="Install CI Butler"
 pipx install cibutler --index-url https://community.opengroup.org/api/v4/projects/1558/packages/pypi/simple --pip-args="--extra-index-url=https://community.opengroup.org/api/v4/projects/148/packages/pypi/simple"
+```
+
+To install a particular version of CI Butler using pipx:
+``` bash title="Install CI Butler"
+pipx install cibutler=="0.3rc0.dev248" --index-url https://community.opengroup.org/api/v4/projects/1558/packages/pypi/simple --pip-args="--extra-index-url=https://community.opengroup.org/api/v4/projects/148/packages/pypi/simple"
 ```
 
 ## Logfile
@@ -299,6 +304,11 @@ Run the following command to check your version and get instructions how to upgr
 
 ``` bash title="version command"
 cibutler version
+``` 
+
+To just run the update to latest
+``` bash title="update command"
+cibutler update
 ``` 
 
 !!! question "Additional Documentation is Available"

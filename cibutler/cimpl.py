@@ -250,6 +250,7 @@ def check_running(
             call(["kubectl", "get", "po"])  # nosec
         pods_not_ready = cik8s.get_pods_not_running()
         duration = time.time() - start
+        duration_str = utils.convert_time(duration)
         if pods_not_ready:
             # If keycloak and partition bootstrap completed, restart the entitlements.
             # Hopefully this will get fixed in the future
@@ -301,7 +302,6 @@ def check_running(
 
             console.print()
             count = len(pods_not_ready.strip().split(" "))
-            duration_str = utils.convert_time(duration)
             console.log(
                 f":person_running: Pods not yet ready: {count}, elapsed: {duration_str}, version: {version}, { 'Minikube' if minikube else 'Kubernetes' }"
             )
@@ -330,7 +330,9 @@ def check_running(
                 running = True
                 break
             else:
-                console.log("Bootstrap default set of schemas is still in progress...")
+                console.log(
+                    f"Bootstrap default set of schemas is still in progress...{duration_str}"
+                )
                 if quiet:
                     time.sleep(bootstrap_sleep)
                 else:
@@ -410,8 +412,12 @@ def bootstrap_upload_data(
         while True:
             status = cik8s.get_deployment_status(bootstrap_data_reference)
             if "readyReplicas" in status and status["readyReplicas"]:
-                console.log(":thumbs_up: reference data bootstrapped.")
-                logger.info("reference data bootstrapped.")
+                console.log(
+                    f":thumbs_up: reference data bootstrapped {bootstrap_data_reference}."
+                )
+                logger.info(
+                    f"reference data bootstrapped {bootstrap_data_reference} {data_load_flag}."
+                )
                 break
             else:
                 duration = time.time() - start
