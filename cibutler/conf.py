@@ -89,3 +89,4 @@ osdu_end_points = {
 }
 
 total_heap_required = 26
+logfile = "cibutler.log"

@@ -38,7 +38,7 @@ dependencies = [
     "requests>=2.32.3",
     "rich>=13.9.4",
     "ruamel-yaml>=0.18.10",
-    "tfparse>=0.6.17",
+    #"tfparse>=0.6.17",
     "typer>=0.15.1",
 ]
 

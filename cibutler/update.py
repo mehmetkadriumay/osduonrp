@@ -5,6 +5,9 @@ import rich.box
 import time
 import importlib
 import logging
+import os
+import sys
+import shlex
 from pypi_simple import PyPISimple
 
 
@@ -43,8 +46,24 @@ def available_versions(
     return versions
 
 
-@cli.command(rich_help_panel="Utility Commands", name="version")
+@cli.command(rich_help_panel="Utility Commands")
 def update(
+    index_url: str = typer.Option(
+        "https://community.opengroup.org/api/v4/projects/1558/packages/pypi/simple",
+        "--index-url",
+        help="index-url",
+    ),
+    project: str = "cibutler",
+):
+    """
+    Update CI Butler :rocket:
+    """
+    command = f"exec pipx upgrade {project} --index-url {index_url.strip()}"
+    os.system(command)
+
+
+@cli.command(rich_help_panel="Utility Commands", name="version")
+def version_command(
     index_url: str = typer.Option(
         "https://community.opengroup.org/api/v4/projects/1558/packages/pypi/simple",
         "--index-url",
@@ -108,7 +127,7 @@ def update(
 
     console.print(
         Panel(
-            f"\nPipx update command:\n\n [green]{pipx_upgrade_command_line}[/green]"
+            f"\n Run [green]cibutler update[/green] or use pipx update command:\n\n [green]{pipx_upgrade_command_line}[/green]"
             + f"\n\nPipx update command with shared libraries (OSDU Python SDK):\n\n [green]{pipx_upgrade_command_line_with_shared_libs}[/green]",
             box=rich.box.SQUARE,
             expand=True,
