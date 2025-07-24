@@ -178,9 +178,14 @@ test-deployment-default-on-minkube:
     - uv run $PACKAGE check --target minikube || echo "check failed"
     - uv run $PACKAGE install --force --max-memory --max-cpu --minikube --quiet -d skip || echo "install failed"; result=$?
     - LOGFILE=$(uv run $PACKAGE diag logfile)
-    - cp $LOGFILE cibutler.log
+    - echo LOGFILE $LOGFILE
+    - uv run $PACKAGE tunnel --background
+    - uv run $PACKAGE status --threshold=5 || echo "status failed"
+    - uv run $PACKAGE groups || echo "groups failed" || echo "groups failed"
     - uv run $PACKAGE delete --force || echo "delete failed"
     - "[ $result == 0 ]"
+  after_script:
+    - cp /root/cibutler.log cibutler.log
   needs: []
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
@@ -190,8 +195,11 @@ test-deployment-default-on-minkube:
       when: manual
   artifacts:
     paths:
+      - /root/cibutler.log
+      - tunnel.log
       - cibutler.log
-    expire_in: 8 hrs
+    when: always
+    expire_in: 24 hrs
 
 test-deployment-M24-on-minkube:
   stage: deploy
@@ -233,8 +241,12 @@ test-deployment-M24-on-minkube:
     - uv run $PACKAGE check --target minikube || echo "check failed"
     - uv run $PACKAGE install --force --max-memory --max-cpu --minikube --quiet -d skip --version=0.27.0-local --source=oci://us-central1-docker.pkg.dev/or2-msq-gnrg-osdu-mp-t1iylu/cimpl/helm/osdu-cimpl|| echo "install failed"; result=$?
     - LOGFILE=$(uv run $PACKAGE diag logfile)
+    - echo LOGFILE $LOGFILE
     - cp $LOGFILE cibutler.log
+    - uv run $PACKAGE tunnel --background
+    - uv run $PACKAGE status --threshold=5 || echo "status failed"
     - uv run $PACKAGE delete --force || echo "delete failed"
+    - cp $LOGFILE cibutler.log
     - "[ $result == 0 ]"
   needs: []
   rules:
@@ -246,6 +258,7 @@ test-deployment-M24-on-minkube:
   artifacts:
     paths:
       - cibutler.log
+      - tunnel.log
     expire_in: 8 hrs
  
 test-deployment-default-on-k3d:
@@ -294,9 +307,11 @@ test-deployment-default-on-k3d:
     - uv run $PACKAGE install --force --kubernetes --quiet -d skip || echo "install failed"; result=$?
     - uv run $PACKAGE status --threshold=5
     - LOGFILE=$(uv run $PACKAGE diag logfile)
+    - echo LOGFILE $LOGFILE
     - cp $LOGFILE cibutler.log
     - uv run $PACKAGE delete --force || echo "delete failed"
     - k3d cluster delete osdu || echo "delete failed"
+    - cp $LOGFILE cibutler.log
     - "[ $result == 0 ]"
   needs: []
   rules:
