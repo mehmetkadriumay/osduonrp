@@ -1,9 +1,11 @@
 import subprocess
 from subprocess import call
 from rich.console import Console
+from typing_extensions import Annotated
 import typer
 import platform
 import logging
+import os
 import cibutler.utils as utils
 import cibutler.cidocker as cidocker
 
@@ -202,14 +204,26 @@ def minikube_status(profile: str = None):
 
 
 @cli.command(rich_help_panel="CI Commands")
-def tunnel():
+def tunnel(
+    background: Annotated[
+        bool, typer.Option("--background", "-b", help="Run in background")
+    ] = False,
+):
     """
     Minkube tunnel
 
     Creates a route to services deployed with type LoadBalancer and sets their Ingress to their ClusterIP.
     """
-    logger.info("Starting minikube tunnel")
-    call(["minikube", "tunnel", "--alsologtostderr"])
+    console.print(os.geteuid())
+    if os.geteuid() == 0 and background:
+        logfile = "tunnel.log"
+        with open(logfile, "w") as outfile:
+            console.print(f"Starting background minikube tunnel, logfile: {logfile}")
+            console.log(f"Starting background minikube tunnel, logfile: {logfile}")
+            subprocess.Popen(["minikube", "tunnel", "--alsologtostderr"], stdout=outfile, stderr=outfile)
+    else:
+        logger.info("Starting minikube tunnel")
+        call(["minikube", "tunnel", "--alsologtostderr"])
 
 
 if __name__ == "__main__":

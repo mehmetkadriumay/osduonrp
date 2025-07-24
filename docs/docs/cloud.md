@@ -1,8 +1,9 @@
 # Cloud testing
 
-Google was nice enough to temporarily donate some compute time for testing of CI Butler.  To help support that I added some automation to create a VM in gcloud in and install CI Butler. Support for GKE will plan to follow.
+Google generously provided temporary compute resources to support testing of CI Butler. To leverage this, I implemented automation to create a VM in Google Cloud and install CI Butler. Support for GKE deployment is planned for a future release.
 
 ## Setup 
+
 Install and configure [gcloud cli](https://cloud.google.com/sdk/docs/install).
 
 While optional I highly recommend creating a `.env.cibutler` file in your home directory, but you can always provide those details on command-line
