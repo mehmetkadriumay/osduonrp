@@ -2,9 +2,11 @@ import typer
 import subprocess
 import shlex
 import json
+import platform
 from pick import pick
 from rich.console import Console
 from kubernetes import client, config
+from kubernetes.client.rest import ApiException
 from typing_extensions import Annotated
 from cibutler.shell import run_shell_command
 from pathlib import Path
@@ -386,6 +388,18 @@ def usecontext(context: str = "docker-desktop"):
     return output.decode("ascii").strip()
 
 
+def log_contexts():
+    try:
+        contexts, active_context = config.list_kube_config_contexts()
+    except config.ConfigException as err:
+        logger.info(f"no good context {err}")
+
+    if not contexts:
+        logger.info("Cannot find any context in kube-config file.")
+    else:
+        logger.info(f"contexts: {contexts}")
+
+
 def selectcontext():
     try:
         contexts, active_context = config.list_kube_config_contexts()
@@ -629,6 +643,55 @@ volumeBindingMode: Immediate # Or WaitForFirstConsumer
         os.remove(filename)  # Clean up the temporary file
     except subprocess.CalledProcessError as err:
         error_console.print(f":x: Error adding Storage Class {name}: {err}")
+        raise typer.Exit(1)
+
+
+def log_kube_stats():
+    """
+    log kube stats
+    """
+    allocatable_gb_memory = kube_allocatable_memory_gb()
+    capacity_gb_memory = kube_capacity_memory_gb()
+    allocatable_cpu = kube_allocatable_cpu()
+    logger.info(
+        f"After istio Kubernetes RAM: {allocatable_gb_memory:.2f}/{capacity_gb_memory:.2f} GiB CPU: {allocatable_cpu}"
+    )
+
+
+@diag_cli.command(rich_help_panel="Kubernetes Diagnostic Commands")
+def get_cluster_ip(
+    name: Annotated[
+        str,
+        typer.Option("--name", help="Name of the Service"),
+    ] = "istio-ingress",
+    namespace: Annotated[
+        str,
+        typer.Option("--namespace", help="Namespace"),
+    ] = "istio-system",
+    host: Annotated[
+        bool, typer.Option("--host", help="Show with gateway names")
+    ] = False,
+):
+    try:
+        config.load_kube_config()
+        k8s_api = client.CoreV1Api()
+        service = k8s_api.read_namespaced_service(name=name, namespace=namespace)
+        if host:
+            ip = service.spec.cluster_ip
+            console.print(
+                f"osdu.localhost:{ip} osdu.local:{ip} airflow.localhost:{ip} airflow.local:{ip} minio.localhost:{ip} minio.local:{ip} keycloak.localhost:{ip} keycloak.local:{ip}"
+            )
+        else:
+            console.print(service.spec.cluster_ip)
+
+    except config.config_exception.ConfigException as err:
+        console.print(f":x: Error loading kube config: {err}")
+        raise typer.Exit(1)
+    except ApiException as err:
+        console.print(f":x: API Exception name: {name} namespace: {namespace}: {err}")
+        raise typer.Exit(1)
+    except Exception as err:
+        console.print(f":x: Error loading kube config: {err}")
         raise typer.Exit(1)
 
 

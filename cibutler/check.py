@@ -5,10 +5,13 @@ import inquirer
 import platform
 import logging
 import shutil
+import socket
 import cibutler.cimpl as cimpl
 import cibutler.cik8s as cik8s
 import cibutler.cidocker as cidocker
 import cibutler.utils as utils
+import cibutler.ciminikube as ciminikube
+import cibutler.update as update
 
 logger = logging.getLogger(__name__)
 
@@ -58,13 +61,30 @@ def check(
     """
     Install Preflight Check
     """
+    update.update_message()
     target = select_target(target=target)
-    console.print(f"Platform: {platform.platform()} CPU: {utils.cpu_info()}")
+    logger.info(f"Uname: {platform.uname()}")
+    logger.info(f"Platform: {platform.platform()}")
+    console.print(f"Platform: {platform.platform()}")
+    cimpl.cpu()
+    logger.info(f"Platform Version: {platform.version()}")
+
+    if "Windows" in platform.system():
+        logger.info(f"Platform Win32: {platform.win32_ver()}")
+
+    console.print(f"Node: {platform.node()} host: {socket.gethostname()}")
+    logger.info(f"Node: {platform.node()} host: {socket.gethostname()}")
 
     if "minikube" in target.lower():
         console.print(":white_check_mark: Minikube Selected")
         preflight_check_required()
         cimpl.check_hosts()
+        if ciminikube.status():
+            error_console.print(":x: Minikube Already running")
+            logger.error("Minikube already running")
+        else:
+            console.print(":white_check_mark: Minikube State OK")
+
     elif "docker-desktop" in target.lower():
         console.print(":white_check_mark: Docker-Desktop Selected")
         cik8s.use_context(context="docker-desktop")
@@ -99,7 +119,23 @@ def check(
     else:
         error_console.print(f":x: Unknown target: {target}")
         raise typer.Exit(1)
+
+    # host based tools required
+    if "Linux" in platform.system():
+        check_installed(["ip", "sudo"])
+
     return target
+
+
+def check_installed(external_utils):
+    for cmd in external_utils:
+        cmd_path = shutil.which(cmd)
+        if cmd_path:
+            console.print(f":white_check_mark: {cmd} installed")
+            logger.info(f"{cmd} installed")
+        else:
+            error_console.print(f":x: {cmd} not installed or not found")
+            logger.error(f"{cmd} not installed or not found")
 
 
 def preflight_check_required(
@@ -123,12 +159,7 @@ def preflight_check_required(
         ]
 
     with console.status("Checking Requirements for install..."):
-        for cmd in external_utils:
-            cmd_path = shutil.which(cmd)
-            if cmd_path:
-                console.print(f":white_check_mark: {cmd} installed")
-            else:
-                error_console.print(f":x: {cmd} not installed or not found")
+        check_installed(external_utils=external_utils)
 
         # nprocs = utils.getconf_nprocs_online()
         nprocs = utils.cpu_count()
@@ -136,11 +167,14 @@ def preflight_check_required(
             console.print(
                 f":white_check_mark: Local CPU Cores online: {nprocs} :thumbs_up:"
             )
+            logger.info(f"Local CPU Cores online: {nprocs}")
         else:
             error_console.print(f":x: Not enough CPU cores detected {nprocs}")
+            logger.error(f"Not enough CPU cores detected {nprocs}")
 
         if skip_docker_daemon:
             console.print(":warning: Skipping docker daemon checks")
+            logger.warning("Skipping docker daemon checks")
             return
 
         ncpu = cidocker.docker_info_ncpu()
@@ -148,12 +182,17 @@ def preflight_check_required(
             error_console.print(
                 ":x: Error getting NCPU setting. Is the docker daemon running?"
             )
+            logger.error("Error getting NCPU setting. Is the docker daemon running?")
             raise typer.Exit(2)
         elif ncpu >= min_cpu_cores:
             console.print(f":white_check_mark: Docker CPU Limit: {ncpu} :thumbs_up:")
+            logger.info(f"Docker CPU Limit: {ncpu}")
         else:
             error_console.print(
                 f":x: Docker CPU Limit too low. Not enough CPU given to docker {ncpu}"
+            )
+            logger.error(
+                f"Docker CPU Limit too low. Not enough CPU given to docker {ncpu}"
             )
             console.print(
                 f"Please increase to a min. {min_cpu_cores}.\nIf you recently changed this value try restarting docker."
@@ -166,6 +205,9 @@ def preflight_check_required(
             error_console.print(
                 f":x: Not enough RAM configured for docker. Found {memory} but {total_heap_required} GiB recommended"
             )
+            logger.error(
+                ":x: Not enough RAM configured for docker. Found {memory} but {total_heap_required} GiB recommended"
+            )
         else:
             console.print(
                 f":white_check_mark: Docker Reporting enough RAM for install {memory} :thumbs_up:"
@@ -177,13 +219,16 @@ def k8s_checks(required_cores=4, required_ram=23.2, ignore_ram=False):
     info = cik8s.cluster_info()
     if info.count("running") >= 2:
         console.print(":white_check_mark: Kubernetes cluster running :thumbs_up:")
+        logger.info("Kubernetes cluster running")
     else:
         error_console.print(":x: Kubernetes may not be running:")
+        logger.error(f"Kubernetes may not be running: {info}")
         console.print(info)
         raise typer.Exit(1)
 
     cores = cik8s.kube_allocatable_cpu()
     console.print(f":info: Kubernetes CPU cores {cores}")
+    logger.info(f"Kubernetes CPU cores {cores}")
     if (isinstance(cores, int)) and cores >= required_cores:
         console.print(f":white_check_mark: Kubernetes CPU cores {cores} :thumbs_up:")
     elif (isinstance(cores, str)) and "m" in cores:
@@ -197,14 +242,19 @@ def k8s_checks(required_cores=4, required_ram=23.2, ignore_ram=False):
         console.print(
             f":white_check_mark: Allocatable RAM {gb_memory:.2f} GiB :thumbs_up:"
         )
+        logger.info(f"Allocatable RAM {gb_memory:.2f} GiB OK")
     elif ignore_ram:
         error_console.print(
             f":warning: Possible not enough Allocatable RAM {gb_memory:.2f} in kubernetes"
+        )
+        logger.warning(
+            f"Possible not enough Allocatable RAM {gb_memory:.2f} in kubernetes"
         )
     else:
         error_console.print(
             f":x: Not enough Allocatable RAM for {gb_memory:.2f} kubernetes"
         )
+        logger.error(f"Not enough Allocatable RAM for {gb_memory:.2f} kubernetes")
         raise typer.Exit(1)
 
     # num_ready = int(cik8s.kube_istio_ready().split()[0])
