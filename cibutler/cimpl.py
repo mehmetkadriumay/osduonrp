@@ -46,8 +46,10 @@ def check_hosts():
     for host in required:
         if utils.resolvehostname(host):
             console.print(f":white_check_mark: {host} resolves")
+            logger.info(f"{host} resolves")
         else:
             error_console.print(f":x: {host} not in hosts file")
+            logger.error(f"{host} not in hosts file")
             good = False
     return good
 
@@ -57,10 +59,16 @@ def cpu():
     """
     Display CPU info
     """
-    console.print(utils.cpu_info())
-    console.print(f"Logic cores: {os.cpu_count()}")
     if "Darwin" in platform.system():
-        console.print(f"Performance Cores: {utils.macos_performance_cores()}")
+        console.print(
+            f"CPU: {utils.cpu_info()} Logic cores: {os.cpu_count()} Performance Cores: {utils.macos_performance_cores()}"
+        )
+        logger.info(
+            f"CPU: {utils.cpu_info()} Logic cores: {os.cpu_count()} Performance Cores: {utils.macos_performance_cores()}"
+        )
+    else:
+        console.print(f"CPU: {utils.cpu_info()} Logic cores: {os.cpu_count()}")
+        logger.info(f"CPU: {utils.cpu_info()} Logic cores: {os.cpu_count()}")
 
 
 def install_cimpl(
@@ -131,6 +139,7 @@ def install_cimpl(
 @diag_cli.command(rich_help_panel="CImpl Diagnostic Commands")
 def update_services(
     debug: Annotated[bool, typer.Option(help="Run with Debug")] = False,
+    add_host: Annotated[str, typer.Option(help="Add additional hosts")] = None,
 ):
     """
     Update service virtual services - add additional hosts, etc
@@ -153,7 +162,14 @@ def update_services(
                     with open(filename, "r") as file:
                         yaml = ruamel.yaml.YAML()
                         data = yaml.load(file)
-                        data["spec"]["hosts"] = ["osdu.localhost", "osdu.cimpl"]
+                        if add_host:
+                            data["spec"]["hosts"] = [
+                                "osdu.localhost",
+                                "osdu.cimpl",
+                                add_host,
+                            ]
+                        else:
+                            data["spec"]["hosts"] = ["osdu.localhost", "osdu.cimpl"]
                         console.print(":wrench:", end="")
                 except FileNotFoundError:
                     error_console.print(f"{filename} was not saved")

@@ -147,9 +147,9 @@ test-deployment-default-on-minkube:
     - uname -a
     - export PATH=$PATH:$HOME/.local/bin
     - apt-get update
-    - apt-get install -y curl
+    - apt-get install -y curl jq
     - echo $(curl ifconfig.me)
-    - apt-get install -y python3 pipx git coreutils ca-certificates 
+    - apt-get install -y python3 pipx git coreutils ca-certificates sudo iproute2 cgroup-tools
     - pipx install uv
     - curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
     - install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
@@ -170,22 +170,40 @@ test-deployment-default-on-minkube:
     - apt install -y docker-ce
     - docker info
     - docker ps
+    - docker network ls
     - pipx install hostsman
     - hostsman -i osdu.localhost:127.0.0.1 osdu.local:127.0.0.1 airflow.localhost:127.0.0.1 airflow.local:127.0.0.1 minio.localhost:127.0.0.1 minio.local:127.0.0.1 keycloak.localhost:127.0.0.1 keycloak.local:127.0.0.1
+    - hostsman -l
     - $PACKAGE --help
     - minikube delete || echo "minikube delete failed"
     - uv run $PACKAGE --version
     - uv run $PACKAGE check --target minikube || echo "check failed"
     - uv run $PACKAGE install --force --max-memory --max-cpu --minikube --quiet -d skip || echo "install failed"; result=$?
+    - docker inspect minikube | jq -r '.[].NetworkSettings.Networks.minikube.IPAddress'
+    - HOSTIP=$(uv run $PACKAGE diag show-network --localhost)
+    - echo $HOSTIP
+    - hostsman -i $HOSTIP
+    - HOSTSTR=$(uv run $PACKAGE diag get-cluster-ip --host)
+    - hostsman -r osdu.localhost osdu.local airflow.localhost airflow.local minio.localhost minio.local keycloak.localhost keycloak.local
+    - echo $HOSTSTR
+    - hostsman -i $HOSTSTR
+    - hostsman -l
     - LOGFILE=$(uv run $PACKAGE diag logfile)
     - echo LOGFILE $LOGFILE
+    - kubectl get service --all-namespaces
+    - kubectl get vs  --all-namespaces
+    - docker container inspect minikube --format="{{.State.Status}}"
+    - if [ -n "$DEBUG_SLEEP" ]; then until [ -f /tmp/wake-up  ]; do sleep 10; done fi
     - uv run $PACKAGE tunnel --background
+    - kubectl get service --all-namespaces
     - uv run $PACKAGE status --threshold=5 || echo "status failed"
     - uv run $PACKAGE groups || echo "groups failed" || echo "groups failed"
+    - if [ -e "/tmp/wake-up" ]; then sleep 30m; else echo "no pause file detected"; fi
     - uv run $PACKAGE delete --force || echo "delete failed"
     - "[ $result == 0 ]"
   after_script:
     - cp /root/cibutler.log cibutler.log
+    - minikube logs > minikube.log || echo "getting logs failed"
   needs: []
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
@@ -195,7 +213,7 @@ test-deployment-default-on-minkube:
       when: manual
   artifacts:
     paths:
-      - /root/cibutler.log
+      - minikube.log
       - tunnel.log
       - cibutler.log
     when: always
@@ -242,11 +260,9 @@ test-deployment-M24-on-minkube:
     - uv run $PACKAGE install --force --max-memory --max-cpu --minikube --quiet -d skip --version=0.27.0-local --source=oci://us-central1-docker.pkg.dev/or2-msq-gnrg-osdu-mp-t1iylu/cimpl/helm/osdu-cimpl|| echo "install failed"; result=$?
     - LOGFILE=$(uv run $PACKAGE diag logfile)
     - echo LOGFILE $LOGFILE
-    - cp $LOGFILE cibutler.log
     - uv run $PACKAGE tunnel --background
     - uv run $PACKAGE status --threshold=5 || echo "status failed"
     - uv run $PACKAGE delete --force || echo "delete failed"
-    - cp $LOGFILE cibutler.log
     - "[ $result == 0 ]"
   needs: []
   rules:
@@ -255,8 +271,12 @@ test-deployment-M24-on-minkube:
       allow_failure: true
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
       when: manual
+  after_script:
+    - cp /root/cibutler.log cibutler.log
+    - minikube logs > minikube.log
   artifacts:
     paths:
+      - minikube.log
       - cibutler.log
       - tunnel.log
     expire_in: 8 hrs
@@ -320,6 +340,8 @@ test-deployment-default-on-k3d:
       allow_failure: true
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
       when: manual
+  after_script:
+    - cp /root/cibutler.log cibutler.log
   artifacts:
     paths:
       - cibutler.log

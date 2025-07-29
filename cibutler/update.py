@@ -6,9 +6,10 @@ import time
 import importlib
 import logging
 import os
-import sys
-import shlex
+import platform
+from typing_extensions import Annotated
 from pypi_simple import PyPISimple
+from packaging.version import Version
 
 
 import cibutler._version as _version
@@ -28,12 +29,33 @@ error_console = Console(stderr=True, style="bold red")
 cli = typer.Typer()
 
 
+def update_available():
+    """
+    Is there an update available?
+    """
+    versions = available_versions()
+    latest = versions.split()[-1]
+    return Version(__version__) < Version(latest)
+
+
+def update_message():
+    """
+    Display a message about version or update available
+    """
+    versions = available_versions()
+    latest = versions.split()[-1]
+    if Version(__version__) < Version(latest):
+        console.print(
+            f"[yellow]You’re using v{__version__} — a newer version (v{latest}) is available![/yellow]"
+        )
+    else:
+        console.print(f"CI Butler v{__version__}")
+
+
 def available_versions(
-    index_url: str = typer.Option(
-        "https://community.opengroup.org/api/v4/projects/1558/packages/pypi/simple",
-        "--index-url",
-        help="index-url",
-    ),
+    index_url: Annotated[
+        str, typer.Option(envvar="INDEX_URL", help="INDEX URL")
+    ] = "https://community.opengroup.org/api/v4/projects/1558/packages/pypi/simple",
     project: str = "cibutler",
 ):
     versions = ""
@@ -58,8 +80,14 @@ def update(
     """
     Update CI Butler :rocket:
     """
-    command = f"exec pipx upgrade {project} --index-url {index_url.strip()}"
-    os.system(command)
+    if platform.system() == "Linux" or platform.system() == "Darwin":
+        command = f"exec pipx upgrade {project} --index-url {index_url.strip()}"
+        os.system(command)
+    elif platform.system() == "Windows":
+        command = f"pipx upgrade {project} --index-url {index_url.strip()}"
+        os.system(command)
+    else:
+        error_console.print("Unsupported command")
 
 
 @cli.command(rich_help_panel="Utility Commands", name="version")
@@ -134,3 +162,8 @@ def version_command(
             title=f"[yellow]To upgrade your system to latest {pre_release_msg}[/yellow]",
         )
     )
+
+
+if __name__ == "__main__":
+    console.print(f"Update available: {update_available()}")
+    update_message()

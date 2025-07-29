@@ -911,10 +911,10 @@ def workflows(
         raise typer.Exit(1)
 
 
-def get_info(endpt, base_url=BASE_URL):
+def get_info(endpt, base_url=BASE_URL, timeout=5):
     url = base_url + endpt + "/info"
     try:
-        r = requests.get(url)
+        r = requests.get(url, timeout=timeout)
     except requests.exceptions.Timeout:
         error_console.print(f"timeout: {url}")
         return None
@@ -935,6 +935,7 @@ def status(
         str, typer.Option(envvar="BASE_URL", help="BASE URL for OSDU")
     ] = BASE_URL,
     threshold: Annotated[int, typer.Option(help="Threshold for exit status")] = 1,
+    timeout: Annotated[int, typer.Option(help="Timeout")] = 5,
 ):
     """
     Get simple health status of OSDU services
@@ -946,7 +947,9 @@ def status(
     base_url = base_url.rstrip("/")
     errors = 0
     for endpt in sorted(conf.osdu_end_points):
-        r = get_info(conf.osdu_end_points[endpt]["api"], base_url=base_url)
+        r = get_info(
+            conf.osdu_end_points[endpt]["api"], base_url=base_url, timeout=timeout
+        )
         if r:
             console.print(f":white_check_mark: {endpt.title()}")
         else:

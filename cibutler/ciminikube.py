@@ -24,6 +24,9 @@ diag_cli = typer.Typer(
 
 
 def suggested_cpu():
+    """
+    Get suggested CPU core count
+    """
     nprocs = utils.cpu_count()
     # alternative nprocs = utils.getconf_nprocs_online()
     if nprocs > 22:
@@ -99,7 +102,7 @@ def minikube_config_set(
     profile: str = None,
 ):
     """
-    Return docker info
+    Minikue config set
     """
     try:
         if profile:
@@ -136,6 +139,9 @@ def minikube_start(
     kubernetes_version: str = "stable",
     nodes: int = 1,
 ):
+    """
+    Minkube start
+    """
     force_opt = ""
     if force:
         force_opt = "--force"
@@ -188,6 +194,9 @@ def minikube_start(
 
 
 def minikube_delete(profile: str = None):
+    """
+    Minikube delete
+    """
     if profile:
         logger.info(f"Deleting minikube profile: {profile}")
         call(["minikube", "delete", "-p", profile])
@@ -197,16 +206,65 @@ def minikube_delete(profile: str = None):
 
 
 def minikube_status(profile: str = None):
+    """
+    Display status of minikube and return exit status
+    """
     if profile:
         return call(["minikube", "status", "-p", profile])
     else:
         return call(["minikube", "status"])
 
 
+def status():
+    """
+    Return status of minikube
+    True if running
+    """
+    p = subprocess.Popen(["minikube", "status"], stdout=subprocess.PIPE, text=True)
+    p.wait()
+    logger.info(f"minikube exit status code: {p.returncode}")
+    return not p.returncode
+
+
+@diag_cli.command(rich_help_panel="Diag CI Commands")
+def show_network(
+    localhost: Annotated[
+        bool,
+        typer.Option(
+            "--localhost",
+            "-l",
+            help="display localhost instead of node",
+        ),
+    ] = False,
+    network: Annotated[
+        str,
+        typer.Option(
+            "--network",
+            "-n",
+            help="",
+        ),
+    ] = "minikube",
+):
+    """
+    Network IP of network
+    """
+    if localhost:
+        console.print(f"{platform.node()}:127.0.0.1")
+    else:
+        console.print(
+            f"{platform.node()}:{cidocker.get_container_network_ip(network=network)}"
+        )
+
+
 @cli.command(rich_help_panel="CI Commands")
 def tunnel(
     background: Annotated[
-        bool, typer.Option("--background", "-b", help="Run in background")
+        bool,
+        typer.Option(
+            "--background",
+            "-b",
+            help="Run in background - supported only on Linux and MacOS",
+        ),
     ] = False,
 ):
     """
@@ -214,13 +272,17 @@ def tunnel(
 
     Creates a route to services deployed with type LoadBalancer and sets their Ingress to their ClusterIP.
     """
-    console.print(os.geteuid())
-    if os.geteuid() == 0 and background:
+
+    if platform.system() != "Windows" and background and os.geteuid() == 0:
         logfile = "tunnel.log"
         with open(logfile, "w") as outfile:
             console.print(f"Starting background minikube tunnel, logfile: {logfile}")
             console.log(f"Starting background minikube tunnel, logfile: {logfile}")
-            subprocess.Popen(["minikube", "tunnel", "--alsologtostderr"], stdout=outfile, stderr=outfile)
+            subprocess.Popen(
+                ["minikube", "tunnel", "--alsologtostderr"],
+                stdout=outfile,
+                stderr=outfile,
+            )
     else:
         logger.info("Starting minikube tunnel")
         call(["minikube", "tunnel", "--alsologtostderr"])

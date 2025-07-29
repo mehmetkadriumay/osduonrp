@@ -296,7 +296,7 @@ def cloud_install_cibutler(
             console.print(f"Running CIButler on {host} as user {remote_user}")
             c.run(".local/bin/cibutler --version")
             c.run(f".local/bin/cibutler check --target {target}")
-            c.run(f".local/bin/cibutler install -k --force")
+            c.run(".local/bin/cibutler install -k --force")
     elapsed_time = time.time() - start_time
     console.print(
         f":white_check_mark: Installation completed on {host} in {elapsed_time:.2f} seconds"
@@ -410,8 +410,15 @@ def cloud_install_ubuntu_microk8s(
             c.run(f"sudo usermod -a -G microk8s {remote_user}")
             c.run("sudo snap install kubectl --classic")
             c.run("mkdir -p ~/.kube")
+            c.run("sudo microk8s status --wait-ready")
+            c.run("sudo microk8s enable dns ingress storage")
         with Connection(host) as c:
             c.run("cd ~/.kube && microk8s config > config")
+        # with Connection(host) as c:
+        # /data
+        # c.run("sudo microk8s kubectl get -o yaml -n kube-system deploy hostpath-provisioner | \
+    # sed 's~/var/snap/microk8s/common/default-storage~/data/snap/microk8s/common/default-storage~g' | \
+    # sudo microk8s kubectl apply -f -")
 
     # c.run("sudo ufw allow in on cni0 && sudo ufw allow out on cni0")
     # c.run("sudo ufw default allow routed")

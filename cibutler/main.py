@@ -325,6 +325,7 @@ def success_message(
             title="[cyan]OSDU Install Success - Please Report[/cyan]",
         )
     )
+    logger.info(output)
 
 
 @cli.command(rich_help_panel="CI Commands")
@@ -426,6 +427,7 @@ def install(
     #    else:
     #        console.print(":sparkles: Running on x86 architecture")
 
+    running_on_docker = False
     if force:
         if minikube is None:
             error_console.print(
@@ -437,6 +439,10 @@ def install(
         target = check.check()
         if "minikube" in target.lower():
             minikube = True
+            running_on_docker = True
+        elif "k3d" in target.lower():
+            running_on_docker = True
+            minikube = False
         else:
             minikube = False
 
@@ -458,6 +464,7 @@ def install(
             data_load_flag = get_data_load_option()
 
     if minikube:
+        running_on_docker = True
         mem_gb = cidocker.docker_mem_gb()
         if conf.total_heap_required > mem_gb:
             console.print(
@@ -493,6 +500,9 @@ def install(
 
     start = time.time()
 
+    if running_on_docker:
+        cidocker.log_docker_details()
+
     if minikube:
         ciminikube.config_minikube(
             percent_memory=percent_memory,
@@ -506,6 +516,7 @@ def install(
             raise typer.Exit(1)
         else:
             console.print(":smile: Minikube OK")
+        cidocker.log_docker_details()
 
     console.log("Checking if storage class is needed in Kubernetes...")
     cik8s.add_sc(ignore=True)
@@ -516,6 +527,7 @@ def install(
         cik8s.kube_log_node_info()
         raise typer.Exit(1)
 
+    cik8s.log_kube_stats()
     install_cimpl(version=version, source=source, configured_options=configured_options)
 
     update_services(debug=debug)
@@ -532,6 +544,7 @@ def install(
         )
         logger.error(f"Installation of {version} has failed on {platform.platform()}")
         cik8s.kube_log_node_info()
+        cik8s.log_kube_stats()
         raise typer.Exit(1)
 
     duration = time.time() - start
@@ -541,6 +554,7 @@ def install(
     )
 
     cik8s.kube_log_node_info()
+    cik8s.log_kube_stats()
 
     success_message(
         version=version,
