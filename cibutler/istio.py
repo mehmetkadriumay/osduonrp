@@ -9,6 +9,9 @@ error_console = Console(stderr=True, style="bold red")
 
 
 def check_istio():
+    """
+    Check if istio is installed
+    """
     helms = ["istio-base", "istio-ingress", "istiod"]
     for chart in helms:
         if cihelm.helm_query(chart):

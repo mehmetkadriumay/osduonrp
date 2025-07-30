@@ -18,7 +18,7 @@ from cibutler.shell import run_shell_command
 
 logger = logging.getLogger(__name__)
 
-console = Console()
+console = Console(log_path=False)
 error_console = Console(stderr=True, style="bold red")
 
 cli = typer.Typer(
@@ -318,8 +318,8 @@ def check_running(
 
             console.print()
             count = len(pods_not_ready.strip().split(" "))
-            console.log(
-                f":person_running: Pods not yet ready: {count}, elapsed: {duration_str}, version: {version}, { 'Minikube' if minikube else 'Kubernetes' }"
+            console.print(
+                f":person_running: Pods not ready: {count}, elapsed: {duration_str}, version: {version}, { 'Minikube' if minikube else 'Kubernetes' }",
             )
             for _ in rich.progress.track(
                 range(sleep),

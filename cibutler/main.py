@@ -58,7 +58,7 @@ logger = logging.getLogger("cibutler")
 # loading variables from .env file
 load_dotenv(Path.home().joinpath(".env.cibutler"))
 
-console = Console()
+console = Console(log_path=False)
 error_console = Console(stderr=True, style="bold red")
 
 cli = typer.Typer(
@@ -427,6 +427,7 @@ def install(
     #    else:
     #        console.print(":sparkles: Running on x86 architecture")
 
+    microk8s = False
     running_on_docker = False
     if force:
         if minikube is None:
@@ -443,6 +444,9 @@ def install(
         elif "k3d" in target.lower():
             running_on_docker = True
             minikube = False
+        elif "microk8s" in target.lower():
+            minikube = False
+            microk8s = True
         else:
             minikube = False
 
@@ -519,7 +523,10 @@ def install(
         cidocker.log_docker_details()
 
     console.log("Checking if storage class is needed in Kubernetes...")
-    cik8s.add_sc(ignore=True)
+    if running_on_docker:
+        cik8s.add_sc(ignore=True, provisioner="docker.io/hostpath")
+    elif microk8s:
+        cik8s.add_sc(ignore=True, provisioner="microk8s.io/hostpath")
 
     if not check_istio() and not install_istio():
         logger.error("Installation of istio has failed")

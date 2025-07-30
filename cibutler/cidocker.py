@@ -1,8 +1,14 @@
 import subprocess
 from rich.console import Console
+
+# from rich.progress import Progress
+from rich.progress import track
 import typer
 import logging
+import time
 import docker
+from typing_extensions import Annotated
+import cibutler.utils as utils
 
 
 logger = logging.getLogger(__name__)
@@ -17,6 +23,43 @@ cli = typer.Typer(
 diag_cli = typer.Typer(
     rich_markup_mode="rich", help="Community Implementation", no_args_is_help=True
 )
+
+import json
+
+
+def docker_memory_consumption_gb():
+    return docker_memory_consumption() / 1024 / 1024 / 1024
+
+
+@diag_cli.command(rich_help_panel="Docker Diagnostic Commands", hidden=True)
+def docker_memory_consumption():
+    """
+    return total memory used by containers in bytes
+    """
+    client = docker.from_env()
+
+    memory_usage_total = 0
+    cache_usage_total = 0
+    container_list = client.containers.list()
+
+    for container in track(
+        container_list, description="Getting existing container memory consumption..."
+    ):
+        stat = container.stats(stream=False, decode=None)
+        try:
+            memory_usage = stat["memory_stats"]["usage"]
+            cache_usage = stat["memory_stats"]["stats"]["inactive_file"]
+            memory_usage_total += memory_usage
+            cache_usage_total += cache_usage
+        except KeyError:
+            continue
+    logger.info(
+        f"Current docker container memory consumption: {utils.convert_size(memory_usage_total)}"
+    )
+    logger.info(
+        f"Current docker container cache consumption: {utils.convert_size(cache_usage_total)}"
+    )
+    return memory_usage_total
 
 
 @diag_cli.command(rich_help_panel="Docker Diagnostic Commands")
@@ -122,7 +165,8 @@ def docker_info(outputformat: str = "json"):
 @diag_cli.command(rich_help_panel="Docker Diagnostic Commands")
 def docker_inspect(item: str = "minikube", outputformat: str = "json"):
     """
-    docker inspect
+    Docker inspect
+
     docker inspect minikube | jq -r '.[].NetworkSettings.Networks.minikube.IPAddress'
     """
     console.print(get_docker_inspect(item=item, outputformat=outputformat))
@@ -154,6 +198,9 @@ def get_docker_info(output: str = "json"):
 
 @diag_cli.command(rich_help_panel="Docker Diagnostic Commands")
 def log_docker_details():
+    """
+    Log containers, networks and volumes
+    """
     log_container_list()
     log_network_list()
     log_volume_list()

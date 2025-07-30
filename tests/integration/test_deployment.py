@@ -5,13 +5,13 @@ from cibutler.main import cli
 
 runner = CliRunner()
 
-
 @pytest.mark.skipif(sys.version_info < (3, 11), reason="requires python3.11 or later")
 def test_version():
     result = runner.invoke(cli, ["--version"])
     assert result.exit_code == 0
 
 
+@pytest.mark.delete
 @pytest.mark.skipif(sys.version_info < (3, 11), reason="requires python3.11 or later")
 def test_delete():
     result = runner.invoke(cli, ["delete", "--force"])
@@ -30,6 +30,7 @@ def test_check_docker_desktop():
     assert result.exit_code == 0
 
 
+@pytest.mark.install
 @pytest.mark.skipif(sys.version_info < (3, 11), reason="requires python3.11 or later")
 def test_install_on_kubernetes():
     result = runner.invoke(
@@ -48,15 +49,18 @@ def test_install_on_kubernetes():
 @pytest.mark.parametrize(
     "test_input",
     [
+        ("check-hosts"),
+        ("cpu"),
+        ("update-services"),
+        ("client-secret"),
+        ("post-message"),
         ("list-pods"),
         ("services"),
         ("ready"),
         ("ingress"),
-        ("client-secret"),
-        ("post-message"),
         ("helm-list"),
+        ("helm-details"),
         ("docker-info"),
-        ("cpu"),
     ],
 )
 def test_diag_commands(test_input):
@@ -69,11 +73,12 @@ def test_diag_commands(test_input):
     "test_input",
     [
         ("token"),
-        ("refresh-token"),
         ("list-clients"),
         ("list-users"),
+        ("refresh-token"),
         ("legal-tags"),
         ("groups"),
+        ("group-members"),
         ("info"),
         ("search"),
     ],
@@ -90,6 +95,7 @@ def test_status():
     assert result.exit_code == 0
 
 
+@pytest.mark.delete
 @pytest.mark.skipif(sys.version_info < (3, 11), reason="requires python3.11 or later")
 def test_cleanup():
     result = runner.invoke(cli, ["delete", "--force"])

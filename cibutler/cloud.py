@@ -30,22 +30,22 @@ def gcloud_checks():
 
     gcloud auth application-default login
     """
-    # Add GCP specific checks here
+    # Add GC specific checks here
     # For example, checking if gcloud is installed, if the user is authenticated, etc.
     try:
         import google.auth  # Ensure google-auth is installed
 
         credentials, project = google.auth.default()
-        console.print(f"Authenticated to GCP project: {project}")
+        console.print(f"Authenticated to GC project: {project}")
     except ImportError:
         error_console.print(
             ":x: google-auth package is not installed. Please install it."
         )
         raise typer.Exit(1)
     except Exception as e:
-        error_console.print(f":x: Error during GCP checks: {e}")
+        error_console.print(f":x: Error during GC checks: {e}")
         raise typer.Exit(1)
-    console.print(":white_check_mark: GCP checks passed")
+    console.print(":white_check_mark: GC checks passed")
 
 
 @diag_cli.command(rich_help_panel="Cloud Diagnostic Commands")
@@ -53,6 +53,9 @@ def ssh(
     host: Annotated[str, typer.Argument(help="host", envvar="HOST")] = None,
     command: Annotated[str, typer.Option(help="command")] = "uname -s",
     hide: Annotated[bool, typer.Option(help="Hide output")] = True,
+    verbose: Annotated[
+        bool, typer.Option("--verbose", "-v", help="Verbose output")
+    ] = False,
 ):
     """
     SSH into a remote host and run a command to check connectivity or run a command.
@@ -61,8 +64,11 @@ def ssh(
     """
     result = Connection(host).run(command, hide=hide)
     if result.ok:
-        console.log(f"Connected to {host}")
-        console.log(f"Remote: {result.stdout.strip()}")
+        if verbose:
+            console.log(f"Connected to {host}")
+            console.log(f"Remote: {result.stdout.strip()}")
+        else:
+            print(result.stdout.strip())
         logger.info(f"Command: {command} output: {result.stdout.strip()}")
         return result.stdout.strip()
     else:
@@ -85,6 +91,21 @@ def gcloud_config_ssh(
 
 
 @diag_cli.command(rich_help_panel="Cloud Diagnostic Commands")
+def gcloud_ssh(
+    instance: Annotated[
+        str, typer.Option(help="Instance Name", envvar="INSTANCE")
+    ] = "instance-osdu",
+    zone: Annotated[str, typer.Option(help="GC Zone", envvar="ZONE")] = "us-central1-b",
+):
+    """
+    gcloud ssh with tunnel for kubernetes
+    """
+    run_shell_command(
+        f"gcloud compute ssh {instance} --zone {zone} --ssh-flag='-o ServerAliveInterval=60 -L 16443:localhost:16443'"
+    )
+
+
+@diag_cli.command(rich_help_panel="Cloud Diagnostic Commands")
 def gcloud_service_account():
     """
     Get the current gcloud service account
@@ -94,16 +115,14 @@ def gcloud_service_account():
 
 @diag_cli.command(rich_help_panel="Cloud Diagnostic Commands")
 def gcloud_instance_create(
-    project: Annotated[str, typer.Argument(help="GCP Project", envvar="PROJECT")],
+    project: Annotated[str, typer.Argument(help="GC Project", envvar="PROJECT")],
     service_account: Annotated[
         str, typer.Argument(help="Service Account", envvar="SERVICE_ACCOUNT")
     ],
     instance: Annotated[
         str, typer.Option(help="Instance Name", envvar="INSTANCE")
     ] = "instance-osdu",
-    zone: Annotated[
-        str, typer.Option(help="GCP Zone", envvar="ZONE")
-    ] = "us-central1-b",
+    zone: Annotated[str, typer.Option(help="GC Zone", envvar="ZONE")] = "us-central1-b",
     series: Annotated[str, typer.Option(help="Instance Type", envvar="SERIES")] = "n2",
     cores: Annotated[int, typer.Option(help="Instance Cores", envvar="CORES")] = 6,
     gb: Annotated[
@@ -115,7 +134,7 @@ def gcloud_instance_create(
     ] = "projects/ubuntu-os-cloud/global/images/ubuntu-minimal-2504-plucky-amd64-v20250708",
 ):
     """
-    Create a GCP VM, by default Ubuntu
+    Create a GC VM, by default Ubuntu
 
     Optionally you can specify the image, series, cores, disk and RAM.
 
@@ -153,13 +172,11 @@ def gcloud_instance_create(
 
 @diag_cli.command(rich_help_panel="Cloud Diagnostic Commands")
 def gcloud_list_instances(
-    project: Annotated[str, typer.Argument(help="GCP Project", envvar="PROJECT")],
-    zone: Annotated[
-        str, typer.Option(help="GCP Zone", envvar="ZONE")
-    ] = "us-central1-b",
+    project: Annotated[str, typer.Argument(help="GC Project", envvar="PROJECT")],
+    zone: Annotated[str, typer.Option(help="GC Zone", envvar="ZONE")] = "us-central1-b",
 ):
     """
-    List GCP VM instances in a project and zone
+    List GC VM instances in a project and zone
     """
     run_shell_command(
         f"gcloud compute instances list --project={project} --zones={zone}"
@@ -168,13 +185,11 @@ def gcloud_list_instances(
 
 @diag_cli.command(rich_help_panel="Cloud Diagnostic Commands")
 def gcloud_instance_stop(
-    instance: Annotated[str, typer.Argument(help="GCP Instance", envvar="INSTANCE")],
-    zone: Annotated[
-        str, typer.Option(help="GCP Zone", envvar="ZONE")
-    ] = "us-central1-b",
+    instance: Annotated[str, typer.Argument(help="GC Instance", envvar="INSTANCE")],
+    zone: Annotated[str, typer.Option(help="GC Zone", envvar="ZONE")] = "us-central1-b",
 ):
     """
-    Stop a GCP VM instance in zone
+    Stop a GC VM instance in zone
     """
     run_shell_command(f"gcloud compute instances stop {instance} --zone={zone}")
 
@@ -186,7 +201,7 @@ def gcloud_compute_images_list(
     ] = "",
 ):
     """
-    List GCP VM images in a project with an optional filter
+    List GC VM images in a project with an optional filter
     """
     filter_option = f"--filter={filter}" if filter else ""
     output = subprocess.run(
@@ -213,6 +228,9 @@ def gcloud_compute_images(
         str, typer.Option(help="Image prefix")
     ] = "https://www.googleapis.com/compute/v1/",
 ):
+    """
+    List GC VM images of ubuntu or rocky linux 9
+    """
     image_list = gcloud_compute_images_list(
         filter="(name~ubuntu-minimal OR name~rocky-linux-9-optimized-gcp) AND (status=READY) AND NOT name~nvidia"  # noqa: E501
     )
@@ -224,23 +242,19 @@ def gcloud_compute_images(
 
 @diag_cli.command(rich_help_panel="Cloud Diagnostic Commands")
 def gcloud_instance_start(
-    instance: Annotated[str, typer.Argument(help="GCP Instance", envvar="INSTANCE")],
-    zone: Annotated[
-        str, typer.Option(help="GCP Zone", envvar="ZONE")
-    ] = "us-central1-b",
+    instance: Annotated[str, typer.Argument(help="GC Instance", envvar="INSTANCE")],
+    zone: Annotated[str, typer.Option(help="GC Zone", envvar="ZONE")] = "us-central1-b",
 ):
     """
-    Start a GCP VM instance in zone
+    Start a GC VM instance in zone
     """
     run_shell_command(f"gcloud compute instances start {instance} --zone={zone}")
 
 
 @diag_cli.command(rich_help_panel="Cloud Diagnostic Commands")
 def gcloud_instance_delete(
-    instance: Annotated[str, typer.Argument(help="GCP Instance", envvar="INSTANCE")],
-    zone: Annotated[
-        str, typer.Option(help="GCP Zone", envvar="ZONE")
-    ] = "us-central1-b",
+    instance: Annotated[str, typer.Argument(help="GC Instance", envvar="INSTANCE")],
+    zone: Annotated[str, typer.Option(help="GC Zone", envvar="ZONE")] = "us-central1-b",
     force: Annotated[
         bool,
         typer.Option(
@@ -249,7 +263,7 @@ def gcloud_instance_delete(
     ] = False,
 ):
     """
-    Delete a GCP VM instance in zone
+    Delete a GC VM instance in zone
     """
     if force:
         run_shell_command(
@@ -264,20 +278,22 @@ def gcloud_instance_delete(
 @diag_cli.command(rich_help_panel="Cloud Diagnostic Commands")
 def gcloud_cluster_create(
     name: Annotated[str, typer.Argument(help="cluster name", envvar="CLUSTER")],
-    zone: Annotated[
-        str, typer.Option(help="GCP Zone", envvar="ZONE")
-    ] = "us-central1-b",
+    zone: Annotated[str, typer.Option(help="GC Zone", envvar="ZONE")] = "us-central1-b",
 ):
+    """
+    Create a kubernetes cluster in GC
+    """
     run_shell_command(f"gcloud container clusters create {name} --zone={zone}")
 
 
 @diag_cli.command(rich_help_panel="Cloud Diagnostic Commands")
 def gcloud_cluster_delete(
     name: Annotated[str, typer.Argument(help="cluster name", envvar="CLUSTER")],
-    zone: Annotated[
-        str, typer.Option(help="GCP Zone", envvar="ZONE")
-    ] = "us-central1-b",
+    zone: Annotated[str, typer.Option(help="GC Zone", envvar="ZONE")] = "us-central1-b",
 ):
+    """
+    Delete a kubernetes cluster in GC
+    """
     run_shell_command(f"gcloud container clusters delete {name} --zone={zone}")
 
 

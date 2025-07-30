@@ -88,7 +88,13 @@ def refresh_token(
     """
     base_url = base_url.rstrip("/")
     cimpl_token_refresher = setup(base_url=base_url, realm=realm, client_id=client_id)
-    token = cimpl_token_refresher.refresh_token()
+    try:
+        token = cimpl_token_refresher.refresh_token()
+    except tenacity.RetryError:
+        error_console.print(
+            f"RetryError when attempting to get refresh token {base_url}"
+        )
+        raise typer.Exit(1)
 
     if token:
         console.print(token)
