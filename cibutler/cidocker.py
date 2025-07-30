@@ -45,13 +45,16 @@ def docker_memory_consumption():
     for container in track(
         container_list, description="Getting existing container memory consumption..."
     ):
-        stat = container.stats(stream=False, decode=None)
         try:
+            stat = container.stats(stream=False, decode=None)
             memory_usage = stat["memory_stats"]["usage"]
             cache_usage = stat["memory_stats"]["stats"]["inactive_file"]
             memory_usage_total += memory_usage
             cache_usage_total += cache_usage
         except KeyError:
+            continue
+        except Exception as err:
+            logger.error(f"unable to get stats of container {container.name} {err}")
             continue
     logger.info(
         f"Current docker container memory consumption: {utils.convert_size(memory_usage_total)}"

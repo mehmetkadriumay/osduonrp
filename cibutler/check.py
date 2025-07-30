@@ -287,7 +287,7 @@ def k8s_checks(required_cores=4, required_ram=23.2, ignore_ram=False):
         raise typer.Exit(1)
 
     cores = cik8s.kube_allocatable_cpu()
-    console.print(f":info: Kubernetes CPU cores {cores}")
+    console.print(f":information_source: Kubernetes CPU cores {cores}")
     logger.info(f"Kubernetes CPU cores {cores}")
     if (isinstance(cores, int)) and cores >= required_cores:
         console.print(f":white_check_mark: Kubernetes CPU cores {cores} :thumbs_up:")
