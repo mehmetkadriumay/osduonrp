@@ -70,10 +70,10 @@ def list_nodes():
         k8s_api = client.CoreV1Api()
         response = k8s_api.list_node()
     except ApiException as err:
-        console.error(f":x: Error talking to kubernetes API: {err}")
+        error_console.print(f":x: Error talking to kubernetes API: {err}")
         raise typer.Exit(1)
     except Exception as err:
-        console.error(f":x: Error talking to kubernetes API: {err}")
+        error_console.print(f":x: Error talking to kubernetes API: {err}")
         raise typer.Exit(1)
     logger.info(response)
     return response
