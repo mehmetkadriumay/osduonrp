@@ -68,7 +68,7 @@ def list_nodes():
     config.load_kube_config()
     k8s_api = client.CoreV1Api()
     response = k8s_api.list_node()
-    logger.debug(response)
+    logger.info(response)
     return response
 
 
@@ -94,6 +94,7 @@ def kube_allocatable():
 
 def kube_allocatable_cpu():
     cpu = kube_status().allocatable["cpu"]
+    logger.info(f"k8s cpu {cpu}")
     if "m" in cpu:
         return cpu
     else:
@@ -586,18 +587,27 @@ def add_sc(
         str,
         typer.Option("--name", help="Name of the Storage Class"),
     ] = "standard",
+    provisioner: Annotated[
+        str,
+        typer.Option("--provisioner", "-p", help="Provisioner"),
+    ] = "docker.io/hostpath",
     force: Annotated[
         bool, typer.Option("--force", help="Create Storage Class even if it exists")
     ] = False,
     ignore: Annotated[
         bool, typer.Option("--ignore", help="Don't raise error if Storage Class exists")
     ] = False,
+    preview: Annotated[bool, typer.Option("--preview", help="Preview")] = False,
 ):
     """
-    Add Storage Class with docker.io/hostpath provisioner to Kubernetes cluster if it does not already exist.
+    Add Storage Class to Kubernetes cluster if it does not already exist.
 
     If it exists, it will not be overwritten unless --force is specified.
     The Storage Class will be created with the name specified by --name.
+
+    Provisioner examples:
+    * MicroK8s microk8s.io/hostpath
+    * Docker docker.io/hostpath
 
     """
 
@@ -609,16 +619,21 @@ def add_sc(
                 console.log(
                     f":warning: Storage Class {name} already exists, but will be overwritten due to --force option"
                 )
+                return True
             elif ignore:
                 console.log(
                     f":information_source: Storage Class {name} already exists, ignoring due to --ignore option"
                 )
-                return
+                return True
             else:
                 error_console.print(
                     f":x: Storage Class {name} already exists, use --force to overwrite"
                 )
                 raise typer.Exit(1)
+
+    if preview:
+        logger.info(f"Storage class {name} required")
+        return False
 
     yaml = f"""apiVersion: storage.k8s.io/v1
 kind: StorageClass
@@ -626,7 +641,7 @@ metadata:
   name: {name}
   annotations:
     storageclass.kubernetes.io/is-default-class: "false" # Optional, to make it the default
-provisioner: docker.io/hostpath
+provisioner: {provisioner}
 reclaimPolicy: Delete # Or Retain, depending on your needs
 volumeBindingMode: Immediate # Or WaitForFirstConsumer
     """.strip()
@@ -672,6 +687,9 @@ def get_cluster_ip(
         bool, typer.Option("--host", help="Show with gateway names")
     ] = False,
 ):
+    """
+    Get cluster-ip of a service
+    """
     try:
         config.load_kube_config()
         k8s_api = client.CoreV1Api()

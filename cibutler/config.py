@@ -28,7 +28,7 @@ diag_cli = typer.Typer(
 configurable_services = ["Unit", "Policy", "Crs-catalog", "Crs-converter"]
 
 
-@diag_cli.command(rich_help_panel="Diagnostic Commands")
+@diag_cli.command(rich_help_panel="CImpl Diagnostic Commands")
 def config(
     defaults: Annotated[
         bool,

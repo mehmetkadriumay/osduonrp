@@ -226,7 +226,7 @@ def status():
     return not p.returncode
 
 
-@diag_cli.command(rich_help_panel="Diag CI Commands")
+@diag_cli.command(rich_help_panel="Minikube Diagnostic Commands")
 def show_network(
     localhost: Annotated[
         bool,
@@ -246,7 +246,7 @@ def show_network(
     ] = "minikube",
 ):
     """
-    Network IP of network
+    Network IP of network in minikube
     """
     if localhost:
         console.print(f"{platform.node()}:127.0.0.1")
