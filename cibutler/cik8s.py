@@ -66,8 +66,15 @@ def list_nodes():
     List nodes via api
     """
     config.load_kube_config()
-    k8s_api = client.CoreV1Api()
-    response = k8s_api.list_node()
+    try:
+        k8s_api = client.CoreV1Api()
+        response = k8s_api.list_node()
+    except ApiException as err:
+        console.error(f":x: Error talking to kubernetes API: {err}")
+        raise typer.Exit(1)
+    except Exception as err:
+        console.error(f":x: Error talking to kubernetes API: {err}")
+        raise typer.Exit(1)
     logger.info(response)
     return response
 
@@ -621,8 +628,8 @@ def add_sc(
                 )
                 return True
             elif ignore:
-                console.log(
-                    f":information_source: Storage Class {name} already exists, ignoring due to --ignore option"
+                logger.info(
+                    f"Storage Class {name} already exists, ignoring due to --ignore option"
                 )
                 return True
             else:
