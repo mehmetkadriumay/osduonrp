@@ -90,6 +90,12 @@ def log_container_list():
         )
 
 
+def server_version():
+    client = docker.from_env()
+    info = client.info()
+    return info["ServerVersion"]
+
+
 def log_network_list():
     client = docker.from_env()
     for network in client.networks.list():
@@ -224,3 +230,7 @@ def purge():
     except subprocess.CalledProcessError as err:
         error_console.print(f"Error during purge: {err}")
         raise typer.Exit(code=1)
+
+
+if __name__ == "__main__":
+    console.print(server_version())

@@ -18,6 +18,7 @@ import cibutler.key as key
 import cibutler.cidocker as cidocker
 import cibutler.ciminikube as ciminikube
 import cibutler.check as check
+import cibutler.log as log
 from cibutler.istio import check_istio, install_istio
 import cibutler.cimpl as cimpl
 from cibutler.cimpl import (
@@ -86,6 +87,7 @@ diag_cli.registered_commands += cik8s.diag_cli.registered_commands
 diag_cli.registered_commands += ciminikube.diag_cli.registered_commands
 diag_cli.registered_commands += cidocker.diag_cli.registered_commands
 diag_cli.registered_commands += cloud.diag_cli.registered_commands
+diag_cli.registered_commands += log.diag_cli.registered_commands
 # diag_cli.registered_commands += tf.diag_cli.registered_commands
 diag_cli.registered_commands += cidebug.diag_cli.registered_commands
 diag_cli.registered_commands += config.diag_cli.registered_commands
@@ -111,15 +113,6 @@ def _version_callback(value: bool):
     if value:
         console.print(f"cibutler Version: {__version__} ({cibutler_version})")
         raise typer.Exit()
-
-
-@diag_cli.command(rich_help_panel="Diagnostic Commands", hidden=True)
-def logfile():
-    """
-    Automation for getting logfile
-    """
-    home = str(Path.home())
-    console.print(f"{home}/{conf.logfile}")
 
 
 @diag_cli.command(rich_help_panel="Helm Diagnostic Commands")

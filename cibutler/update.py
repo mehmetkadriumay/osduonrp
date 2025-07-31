@@ -34,8 +34,12 @@ def update_available():
     Is there an update available?
     """
     versions = available_versions()
-    latest = versions.split()[-1]
-    return Version(__version__) < Version(latest)
+    console.print(versions)
+    if versions:
+        latest = versions.split()[-1]
+        return Version(__version__) < Version(latest)
+    else:
+        return None
 
 
 def update_message():
@@ -43,13 +47,15 @@ def update_message():
     Display a message about version or update available
     """
     versions = available_versions()
-    latest = versions.split()[-1]
-    if Version(__version__) < Version(latest):
-        console.print(
-            f"[yellow]You’re using v{__version__} — a newer version (v{latest}) is available![/yellow]"
-        )
-    else:
-        console.print(f"CI Butler v{__version__}")
+    if versions:
+        latest = versions.split()[-1]
+        if Version(__version__) < Version(latest):
+            console.print(
+                f"[yellow]You’re using v{__version__} — a newer version (v{latest}) is available![/yellow]"
+            )
+            return True
+    console.print(f"CI Butler v{__version__}")
+    return False
 
 
 def available_versions(
@@ -60,7 +66,16 @@ def available_versions(
 ):
     versions = ""
     with PyPISimple(endpoint=index_url) as client:
-        requests_page = client.get_project_page(project)
+        try:
+            requests_page = client.get_project_page(project)
+        except ConnectionError as err:
+            error_console.print(f"{err}")
+            return None
+        except Exception:
+            console.print(
+                ":warning: Unable to check for updated version", style="yellow"
+            )
+            return None
         for package in requests_page.packages:
             # console.print(package.version)
             # versions.append(package.version)
