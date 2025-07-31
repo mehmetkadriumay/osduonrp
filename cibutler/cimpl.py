@@ -321,6 +321,9 @@ def check_running(
             console.print(
                 f":person_running: Pods not ready: {count}, elapsed: {duration_str}, version: {version}, { 'Minikube' if minikube else 'Kubernetes' }",
             )
+            logger.info(
+                f":person_running: Pods not ready: {count}, elapsed: {duration_str}, version: {version}, { 'Minikube' if minikube else 'Kubernetes' }",
+            )
             for _ in rich.progress.track(
                 range(sleep),
                 transient=True,

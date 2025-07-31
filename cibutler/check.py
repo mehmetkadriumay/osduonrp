@@ -6,6 +6,7 @@ import platform
 import logging
 import shutil
 import socket
+from packaging.version import Version
 import cibutler.cimpl as cimpl
 import cibutler.cik8s as cik8s
 import cibutler.cidocker as cidocker
@@ -33,12 +34,12 @@ def select_target(
 ):
     if target is None:
         options = [
-            "Minikube running inside docker (Supported)",
-            "Kubernetes (Kubeadm) running in docker-desktop - single node cluster (Supported)",
-            "MicroK8s on this device (Supported)",
+            "Minikube running inside docker (Supported: All releases)",
+            "Kubernetes (Kubeadm) running in docker-desktop - single node cluster (Partially Supported)",
+            "MicroK8s on this device (Supported: 0.27, Partial 0.28)",
             "Kubernetes (Kind) running in docker-desktop (Unsupported)",
             "K3s (Containerd) on this device (Unsupported)",
-            "K3d on this device (Unsupported)",
+            "K3d on this device (Supported: 0.27)",
             "Other Kubernetes Cluster (Unsupported)",
         ]
         questions = [
@@ -79,18 +80,20 @@ def check(
     if "minikube" in target.lower():
         console.print(":white_check_mark: Minikube Selected")
         preflight_check_required()
+        check_docker_server_version()
         check_docker_memory_consumption()
         cimpl.check_hosts()
         if ciminikube.status():
             error_console.print(":x: Minikube Already running")
             logger.error("Minikube already running")
         else:
-            console.print(":white_check_mark: Minikube State OK")
+            console.print(":white_check_mark: Minikube State OK (not running)")
 
     elif "docker-desktop" in target.lower():
         console.print(":white_check_mark: Docker-Desktop Selected")
         cik8s.use_context(context="docker-desktop")
         preflight_check_required()
+        check_docker_server_version()
         check_docker_memory_consumption()
         k8s_checks()
         cimpl.check_hosts()
@@ -114,6 +117,7 @@ def check(
     elif "k3d" in target.lower():
         console.print(":white_check_mark: K3d (K3s in Docker) Selected")
         cimpl.check_hosts()
+        check_docker_server_version()
         preflight_check_required()
         cimpl.check_hosts()
         check_storage_class(added_during_install=False)
@@ -135,6 +139,8 @@ def check(
     # host based tools required
     if "Linux" in platform.system():
         check_installed(["ip", "sudo"])
+    elif "Darwin" in platform.system():
+        check_installed(["sudo"])
 
     return target
 
@@ -146,15 +152,18 @@ def check_storage_class(added_during_install=False, name="standard"):
     if added_during_install:
         if not cik8s.add_sc(ignore=True, preview=True, name=name):
             console.print(
-                ":warning: Storage class required, but will be added during install"
+                ":warning: Storage class required, but will be added during install."
             )
             return
     else:
         if not cik8s.add_sc(ignore=True, preview=True, name=name):
-            console.print(f":x: Storage class {name} required", style="bold red")
+            console.print(
+                f":x: Storage class {name} required. See [green]cibutler diag add-sc --help[/green]",
+                style="bold red",
+            )
             return
 
-    console.print(f":white_check_mark: Storage class {name} OK")
+    console.print(f":white_check_mark: Storage class {name} exists.")
 
 
 def check_docker_memory_consumption(required=26):
@@ -187,6 +196,22 @@ def check_installed(external_utils):
         else:
             console.print(f":x: {cmd} not installed or not found", style="bold red")
             logger.error(f"{cmd} not installed or not found")
+
+
+def check_docker_server_version(required_version="28"):
+    """
+    Check docker server version
+    """
+    version = cidocker.server_version()
+    if Version(version) > Version(required_version):
+        console.print(f":white_check_mark: Docker server version OK {version}")
+        return True
+    else:
+        console.print(
+            f":x: Docker server version may be too old. Found {version}", style="yellow"
+        )
+        logger.warning(f"Docker server version may be too old. Found {version}")
+        return False
 
 
 def preflight_check_required(
@@ -261,11 +286,11 @@ def preflight_check_required(
 
         if total_heap_required > mem_gb:
             console.print(
-                f":x: Not enough RAM configured for docker. Found {memory} but {total_heap_required} GiB recommended",
+                f":x: Not enough RAM configured for docker. Found {memory} but {total_heap_required} GiB recommended.",
                 style="bold red",
             )
             logger.error(
-                ":x: Not enough RAM configured for docker. Found {memory} but {total_heap_required} GiB recommended"
+                ":x: Not enough RAM configured for docker. Found {memory} but {total_heap_required} GiB recommended."
             )
         else:
             console.print(

@@ -615,6 +615,8 @@ def add_sc(
     Provisioner examples:
     * MicroK8s microk8s.io/hostpath
     * Docker docker.io/hostpath
+    * K3d rancher.io/local-path
+    * K3S rancher.io/local-path
 
     """
 
@@ -626,7 +628,6 @@ def add_sc(
                 console.log(
                     f":warning: Storage Class {name} already exists, but will be overwritten due to --force option"
                 )
-                return True
             elif ignore:
                 logger.info(
                     f"Storage Class {name} already exists, ignoring due to --ignore option"

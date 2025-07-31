@@ -28,10 +28,10 @@ def select_version(defaults: bool = False):
     versions = {
         "0.27.0-local           (M24 Oct 2024 x86)       Tested and Working  GC BareMetal": "oci://us-central1-docker.pkg.dev/or2-msq-gnrg-osdu-mp-t1iylu/cimpl/helm/osdu-cimpl",
         "0.27.0-local           (M24 Oct 2024 arm only)  Tested and Working  GC BareMetal": "oci://us-central1-docker.pkg.dev/or2-msq-gnrg-osdu-mp-t1iylu/cimpl/helm/osdu-cimpl-arm",
-        "0.27.0-local-test      (M24 Oct 2024 x86)                           GC BareMetal": "oci://us-central1-docker.pkg.dev/or2-msq-gnrg-osdu-mp-t1iylu/cimpl/helm/osdu-cimpl",
-        "0.27.2                 (M24 Nov 2024 x86 only)                      GC BareMetal": "oci://us-central1-docker.pkg.dev/or2-msq-gnrg-osdu-mp-t1iylu/cimpl/helm/osdu-cimpl",
-        "0.27.3                 (M24 Jan 2025 x86 only)                      GC BareMetal": "oci://us-central1-docker.pkg.dev/or2-msq-gnrg-osdu-mp-t1iylu/cimpl/helm/osdu-cimpl",
-        "0.28.0-local-c18982c9a (M25 April 2025 multi)   Tested and Working  GC BareMetal": "oci://us-central1-docker.pkg.dev/or2-msq-gnrg-osdu-mp-t1iylu/cimpl/helm/osdu-cimpl",
+        "0.27.0-local-test      (M24 Oct 2024 x86)       Untested            GC BareMetal": "oci://us-central1-docker.pkg.dev/or2-msq-gnrg-osdu-mp-t1iylu/cimpl/helm/osdu-cimpl",
+        "0.27.2                 (M24 Nov 2024 x86 only)  Untested            GC BareMetal": "oci://us-central1-docker.pkg.dev/or2-msq-gnrg-osdu-mp-t1iylu/cimpl/helm/osdu-cimpl",
+        "0.27.3                 (M24 Jan 2025 x86 only)  Untested            GC BareMetal": "oci://us-central1-docker.pkg.dev/or2-msq-gnrg-osdu-mp-t1iylu/cimpl/helm/osdu-cimpl",
+        "0.28.0-local-c18982c9a (M25 April 2025 multi)   Tested *            GC BareMetal": "oci://us-central1-docker.pkg.dev/or2-msq-gnrg-osdu-mp-t1iylu/cimpl/helm/osdu-cimpl",
     }
 
     options = []
@@ -39,11 +39,15 @@ def select_version(defaults: bool = False):
         options.append(f"{version}")
 
     console.print(f"Current deployments known to CI Butler {cibutler_version}:")
+    console.print(
+        "[yellow]Note:[/yellow] * Some issues reported for some kubernetes distributions"
+    )
     questions = [
         inquirer.List(
             "helm_version",
             message="What Helm Version (typically also the OSDU Version)?",
-            default=options[-1],
+            # default=options[-1],
+            default=options[0],
             choices=options,
         ),
     ]
