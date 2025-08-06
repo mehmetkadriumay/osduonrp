@@ -21,6 +21,7 @@ import cibutler.check as check
 import cibutler.log as log
 from cibutler.istio import check_istio, install_istio
 import cibutler.cimpl as cimpl
+import cibutler.webui as webui
 from cibutler.cimpl import (
     install_cimpl,
     update_services,
@@ -91,6 +92,7 @@ diag_cli.registered_commands += log.diag_cli.registered_commands
 # diag_cli.registered_commands += tf.diag_cli.registered_commands
 diag_cli.registered_commands += cidebug.diag_cli.registered_commands
 diag_cli.registered_commands += config.diag_cli.registered_commands
+diag_cli.registered_commands += webui.diag_cli.registered_commands
 
 cli.add_typer(
     diag_cli,

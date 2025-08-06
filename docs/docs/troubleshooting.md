@@ -8,6 +8,8 @@ Things to try when CI Butler installs fail:
 * Take defaults when installing
 * Try a different version of OSDU/Helm Version/Chart
 * Built in diagnostic tools `cibutler diag --help` for repairing or investigating
+* Try purging docker containers, images, volumes and networks `cibutler diag purge`
+* Package diagnostic logs `cibutler diag package` for sending to support team
 * kubernetes commands on failed pods, etc. `kubectl logs <pod>` and `kubectl describe po/<pod>`
 
 Reach out to community for support:

@@ -10,6 +10,7 @@ import tenacity
 import json
 from pathlib import Path
 from typing_extensions import Annotated
+from io import StringIO
 from osdu_api.auth.refresh_token import BaseTokenRefresher
 from osdu_api.clients.entitlements.entitlements_client import EntitlementsClient
 from osdu_api.clients.search.search_client import SearchClient
@@ -53,9 +54,9 @@ def setup(base_url: str, realm: str = "osdu", client_id: str = "osdu-admin"):
     Get a refresh token
     """
     client_secret = cimpl.get_keycloak_client_secret()
-    os.environ[
-        "KEYCLOAK_AUTH_URL"
-    ] = f"http://keycloak.localhost/realms/{realm}/protocol/openid-connect/token"
+    os.environ["KEYCLOAK_AUTH_URL"] = (
+        f"http://keycloak.localhost/realms/{realm}/protocol/openid-connect/token"
+    )
     os.environ["KEYCLOAK_CLIENT_ID"] = client_id
     os.environ["KEYCLOAK_CLIENT_SECRET"] = client_secret
     os.environ["CLOUD_PROVIDER"] = CLOUD_PROVIDER
@@ -98,6 +99,10 @@ def refresh_token(
 
     if token:
         console.print(token)
+        output = StringIO()
+        ret_console = Console(file=output)
+        ret_console.print(token)
+        return output.getvalue()
     else:
         error_console.print("Error getting token")
         raise typer.Exit(1)
@@ -178,6 +183,10 @@ def legal_tags(
             )
         else:
             console.print(r.json())
+            output = StringIO()
+            ret_console = Console(file=output)
+            ret_console.print(r.json())
+            return output.getvalue()
     else:
         error_console.print(f"Error {legal_url} list_legal_tags: {r.status_code}")
         raise typer.Exit(1)
@@ -262,6 +271,10 @@ def groups(
             )
         else:
             console.print(r.json())
+            output = StringIO()
+            ret_console = Console(file=output)
+            ret_console.print(r.json())
+            return output.getvalue()
     else:
         error_console.print(
             f"Error {entitlements_url} get_groups_for_user: {r.status_code}"
@@ -988,11 +1001,20 @@ def info(
         else:
             error_console.print(f"Unknown service: {service}")
     else:
-        for endpt in sorted(conf.osdu_end_points):
-            r = get_info(conf.osdu_end_points[endpt]["api"], base_url=base_url)
-            if r:
-                console.print(f"{endpt.title()}:")
-                console.print(r)
+        console.print(get_info_all(base_url=base_url))
+
+
+def get_info_all(base_url: str = BASE_URL):
+    base_url = base_url.rstrip("/")
+    output = StringIO()
+    ret_console = Console(file=output)
+
+    for endpt in sorted(conf.osdu_end_points):
+        r = get_info(conf.osdu_end_points[endpt]["api"], base_url=base_url)
+        if r:
+            ret_console.print(f"\n{endpt.title()}:\n")
+            ret_console.print(r)
+    return output.getvalue()
 
 
 if __name__ == "__main__":

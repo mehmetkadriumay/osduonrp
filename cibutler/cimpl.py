@@ -304,14 +304,16 @@ def check_running(
                     f"There seems to be an issue with `{pods_not_ready}`."
                 )
                 console.print(
-                    """Please get the logs of crashing pod with 'kubectl logs <Name-of-the-pod>
+                    """Please review the logs of crashing pod with 'kubectl logs <Name-of-the-pod>'
                     Your system may still be usable, but these pods are not ready.
+                    Notebook and Data loading will not be run. You can run them manually however.
 
                     This may be an issue with OSDU or with the container image, either way
                     CIButler is not able to handle this particular situation.
 
-                    Notebook and Data loading will not be run. You can run them manually however.
-                    See https://osdu.pages.opengroup.org/ui/cibutler/troubleshooting/
+                    If you want to package logs and diagnostics, you can run 'cibutler diag package' command.
+
+                    See https://osdu.pages.opengroup.org/ui/cibutler/troubleshooting/ for troubleshooting tips
                     """
                 )
                 break
@@ -319,10 +321,10 @@ def check_running(
             console.print()
             count = len(pods_not_ready.strip().split(" "))
             console.print(
-                f":person_running: Pods not ready: {count}, elapsed: {duration_str}, version: {version}, { 'Minikube' if minikube else 'Kubernetes' }",
+                f":person_running: Pods not ready: {count}, elapsed: {duration_str}, version: {version}, {'Minikube' if minikube else 'Kubernetes'}",
             )
             logger.info(
-                f":person_running: Pods not ready: {count}, elapsed: {duration_str}, version: {version}, { 'Minikube' if minikube else 'Kubernetes' }",
+                f":person_running: Pods not ready: {count}, elapsed: {duration_str}, version: {version}, {'Minikube' if minikube else 'Kubernetes'}",
             )
             for _ in rich.progress.track(
                 range(sleep),
