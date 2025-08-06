@@ -5,6 +5,7 @@ import json
 import platform
 from pick import pick
 from rich.console import Console
+from rich.progress import track
 from kubernetes import client, config
 from kubernetes.client.rest import ApiException
 from typing_extensions import Annotated
@@ -36,6 +37,7 @@ def list_pods(
         bool,
         typer.Option("--incluster", help="Use incluster config"),
     ] = False,
+    save: Annotated[bool, typer.Option(help="Save to file")] = False,
 ):
     """
     List pods via api - IP, namespace and name
@@ -55,10 +57,44 @@ def list_pods(
 
     k8s_api = client.CoreV1Api()
     ret = k8s_api.list_pod_for_all_namespaces(watch=False)
-    for i in ret.items:
-        console.print(
-            "%s\t%s\t%s" % (i.status.pod_ip, i.metadata.namespace, i.metadata.name)
-        )
+    if save:
+        txt_name = "pods_list.txt"
+        json_name = "pods_list.json"
+        with open(txt_name, "w") as f:
+            for i in ret.items:
+                f.write(
+                    f"{i.status.pod_ip}\t{i.metadata.namespace}\t{i.metadata.name}\t{i.status.phase}\n"
+                )
+        console.print(f":white_check_mark: Pods list saved to {txt_name}")
+        logger.info(f"Pods list saved to {txt_name}")
+        with open(json_name, "w") as f:
+            f.write(str(ret))
+        console.print(f":white_check_mark: Pods list saved to {json_name}")
+        for i in track(ret.items, description="Saving pod logs and descriptions..."):
+            # console.print(f"Saving logs and description for pod {i.metadata.name}...")
+            describe_txt = get_describe(
+                what="pod", thing=i.metadata.name, namespace=i.metadata.namespace
+            )
+            with open(f"{i.metadata.name}_describe.txt", "w") as descf:
+                descf.write(describe_txt)
+                # console.print(f":white_check_mark: saved describe for {i.metadata.name} to {i.metadata.name}_describe.txt")
+            pod_log = pod_logs(pod_name=i.metadata.name, namespace=i.metadata.namespace)
+            with open(f"{i.metadata.name}_logs.txt", "w") as logf:
+                logf.write(pod_log)
+                # console.print(f":white_check_mark: saved logs for {i.metadata.name} to {i.metadata.name}_logs.txt")
+
+        return txt_name, json_name
+    else:
+        for i in ret.items:
+            console.print(
+                "%s\t%s\t%s\t%s"
+                % (
+                    i.status.pod_ip,
+                    i.metadata.namespace,
+                    i.metadata.name,
+                    i.status.phase,
+                )
+            )
 
 
 def list_nodes():
@@ -100,6 +136,9 @@ def kube_allocatable():
 
 
 def kube_allocatable_cpu():
+    """
+    Get the allocatable CPU
+    """
     cpu = kube_status().allocatable["cpu"]
     logger.info(f"k8s cpu {cpu}")
     if "m" in cpu:
@@ -109,14 +148,17 @@ def kube_allocatable_cpu():
 
 
 def kube_allocatable_memory():
+    """Get the allocatable memory in bytes."""
     return kube_status().allocatable["memory"]
 
 
 def kube_capacity_memory():
+    """Get the capacity memory in bytes."""
     return kube_status().capacity["memory"]
 
 
 def kube_allocatable_memory_gb():
+    """Get the allocatable memory in GB."""
     k8s_memory = kube_allocatable_memory()
     if k8s_memory.endswith("Ki"):
         ki = int(k8s_memory.replace("Ki", ""))
@@ -126,6 +168,7 @@ def kube_allocatable_memory_gb():
 
 
 def kube_capacity_memory_gb():
+    """Get the capacity memory in GB."""
     k8s_memory = kube_capacity_memory()
     if k8s_memory.endswith("Ki"):
         ki = int(k8s_memory.replace("Ki", ""))
@@ -135,6 +178,7 @@ def kube_capacity_memory_gb():
 
 
 def kube_istio_ready():
+    """Check if Istio is ready in the cluster."""
     output = subprocess.Popen(
         [
             "kubectl",
@@ -191,20 +235,94 @@ def kubepod_nodename(nodename):
     return output.decode("ascii").strip()
 
 
-def describe(what="pods", label=None, thing=None):
-    if thing:
-        output = subprocess.Popen(
-            ["kubectl", "describe", what, thing], stdout=subprocess.PIPE
-        ).communicate()[0]
-    elif label:
-        output = subprocess.Popen(
-            ["kubectl", "describe", what, "-l", label], stdout=subprocess.PIPE
-        ).communicate()[0]
+@diag_cli.command(rich_help_panel="Kubernetes Diagnostic Commands")
+def describe(
+    save: Annotated[bool, typer.Option(help="Save to file")] = False,
+    what: Annotated[str, typer.Option(help="What to describe")] = "pods",
+    label: Annotated[str, typer.Option(help="Label selector")] = None,
+    thing: Annotated[str, typer.Option(help="Specific resource to describe")] = None,
+    namespace: Annotated[str, typer.Option(help="Kubernetes namespace")] = "default",
+):
+    """Describe a Kubernetes resource."""
+    if save:
+        name = f"{what}_describe.txt"
+        with open(name, "w") as f:
+            f.write(
+                get_describe(what=what, label=label, thing=thing, namespace=namespace)
+            )
+        console.print(f":white_check_mark: Describe {what} saved to {name}")
+        logger.info(f"Describe {what} saved to {name}")
+        return name
     else:
+        console.print(
+            get_describe(what=what, label=label, thing=thing, namespace=namespace)
+        )
+
+
+def get_describe(what="pods", label=None, thing=None, namespace="default"):
+    """Get the description of a Kubernetes resource."""
+    try:
+        if thing:
+            output = subprocess.Popen(
+                ["kubectl", "-n", namespace, "describe", what, thing],
+                stdout=subprocess.PIPE,
+            ).communicate()[0]
+        elif label:
+            output = subprocess.Popen(
+                ["kubectl", "-n", namespace, "describe", what, "-l", label],
+                stdout=subprocess.PIPE,
+            ).communicate()[0]
+        else:
+            output = subprocess.Popen(
+                ["kubectl", "-n", namespace, "describe", what], stdout=subprocess.PIPE
+            ).communicate()[0]
+        return output.decode("utf-8").strip()
+    except Exception as err:
+        error_console.print(f":x: Error describing {what} {thing}: {err}")
+
+
+def pod_containers(pod_name, namespace="default"):
+    try:
         output = subprocess.Popen(
-            ["kubectl", "describe", what], stdout=subprocess.PIPE
+            [
+                "kubectl",
+                "get",
+                "pod",
+                pod_name,
+                "-n",
+                namespace,
+                "-o",
+                "jsonpath={.spec.containers[*].name}",
+            ],
+            stdout=subprocess.PIPE,
         ).communicate()[0]
-    return output.decode("ascii").strip()
+        return output.decode("utf-8").strip().split()
+    except subprocess.CalledProcessError as err:
+        error_console.print(f":x: Error getting containers for pod {pod_name}: {err}")
+        return f"Error getting containers for pod {pod_name}: {err}"
+    except Exception as err:
+        error_console.print(f":x: Error getting containers for pod {pod_name}: {err}")
+        return f"Error getting containers for pod {pod_name}: {err}"
+
+
+def pod_logs(pod_name, namespace="default"):
+    containers = pod_containers(pod_name=pod_name, namespace=namespace)
+    for container in containers:
+        logger.info(
+            f"Getting logs for pod {pod_name} in namespace {namespace} for container: {container}"
+        )
+        try:
+            output = subprocess.Popen(
+                ["kubectl", "logs", pod_name, "-c", container, "-n", namespace],
+                stdout=subprocess.PIPE,
+            ).communicate()[0]
+            return output.decode("utf-8").strip()
+        except subprocess.CalledProcessError as err:
+            error_console.print(f":x: Error getting logs for pod {pod_name}: {err}")
+            return f"Error getting logs for pod {pod_name}: {err}"
+        except Exception as err:
+            error_console.print(f":x: Error getting logs for pod {pod_name}: {err}")
+            return f"Error getting logs for pod {pod_name}: {err}"
 
 
 def get_namespace(namespace):
@@ -316,11 +434,20 @@ def pods_not_running(
             "--namespace", "-n", help="Namespace to check for pods not running"
         ),
     ] = "default",
+    save: Annotated[bool, typer.Option(help="Save to file")] = False,
 ):
     """
     Show pods that are not running
     """
-    console.print(get_pods_not_running(namespace=namespace))
+    name = "pods_not_running.txt"
+    if save:
+        with open(name, "w") as f:
+            f.write(get_pods_not_running(namespace=namespace))
+        console.print(f":white_check_mark: Pods not running saved to {name}")
+        logger.info(f"Pods not running saved to {name}")
+        return name
+    else:
+        console.print(get_pods_not_running(namespace=namespace))
 
 
 def get_pods_not_running(namespace: str = "default"):
@@ -434,11 +561,20 @@ def services(
     namespace: Annotated[
         str, typer.Option("--namespace", "-n", help="Namespace to list services from")
     ] = "default",
+    save: Annotated[bool, typer.Option(help="Save to file")] = False,
 ):
     """
     Show virtual services
     """
-    console.print(kubectl_get(namespace=namespace))
+    if save:
+        name = "services.txt"
+        with open(name, "w") as f:
+            f.write(kubectl_get("vs", namespace=namespace))
+        console.print(f":white_check_mark: Services saved to {name}")
+        logger.info(f"Services saved to {name}")
+        return name
+    else:
+        console.print(kubectl_get(namespace=namespace))
 
 
 @diag_cli.command(rich_help_panel="Kubernetes Diagnostic Commands")
@@ -508,7 +644,7 @@ def list_pvcs(
         console.print(f"{name} - Status: {status}, Size: {size}")
 
 
-def get_storage_classes():
+def get_storage_classes(save: bool = False):
     """
     Get storage classes
     """
@@ -516,6 +652,13 @@ def get_storage_classes():
         output = subprocess.run(
             ["kubectl", "get", "sc", "-o", "json"], capture_output=True, check=True
         )
+        if save:
+            name = "storage_classes.json"
+            with open(name, "w") as f:
+                f.write(output.stdout.decode("utf-8"))
+            console.print(f":white_check_mark: Storage classes saved to {name}")
+            logger.info(f"Storage classes saved to {name}")
+            return name
         return json.loads(output.stdout.decode("utf-8"))
     except subprocess.CalledProcessError as err:
         error_console.print(f":x: Error getting storage classes: {err}")

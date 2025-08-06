@@ -207,9 +207,9 @@ def configure(
         data["airflow"]["airflow-infra-bootstrap"]["domain"] = domain
         data["common-infra-bootstrap"]["global"]["domain"] = domain
         data["common-infra-bootstrap"]["airflow"]["auth"]["password"] = airflow_password
-        data["common-infra-bootstrap"]["airflow"]["externalDatabase"][
-            "password"
-        ] = airflow_password
+        data["common-infra-bootstrap"]["airflow"]["externalDatabase"]["password"] = (
+            airflow_password
+        )
 
         # Elasticseach
         data["elasticsearch"]["security"]["elasticPassword"] = elasticsearch_password
@@ -222,16 +222,16 @@ def configure(
         # data["global"]["limitsEnabled"] = bool(limits_enabled)
         data["minio"]["auth"]["rootPassword"] = minio_password
         data["minio"]["minio-infra-bootstrap"]["global"]["domain"] = domain
-        data["minio"]["minio-infra-bootstrap"]["minio"]["auth"][
-            "rootPassword"
-        ] = minio_password
+        data["minio"]["minio-infra-bootstrap"]["minio"]["auth"]["rootPassword"] = (
+            minio_password
+        )
         # data["minio"]["useInternalServerUrl"] = bool(use_internal_server_url)
         # data["keycloak"]["auth"]["adminPassword"] = keycloak_admin_password
 
         # postgresql
-        data["postgresql"]["global"]["postgresql"]["auth"][
-            "postgresPassword"
-        ] = postgresql_password
+        data["postgresql"]["global"]["postgresql"]["auth"]["postgresPassword"] = (
+            postgresql_password
+        )
         data["postgresql"]["postgres-infra-bootstrap"]["global"]["domain"] = domain
         data["postgresql"]["postgres-infra-bootstrap"]["postgresql"]["global"][
             "postgresql"
@@ -240,14 +240,14 @@ def configure(
         # common-infra-bootstrap
         data["common-infra-bootstrap"]["global"]["domain"] = domain
         data["common-infra-bootstrap"]["airflow"]["auth"]["password"] = airflow_password
-        data["common-infra-bootstrap"]["airflow"]["externalDatabase"][
-            "password"
-        ] = airflow_externaldb_password
+        data["common-infra-bootstrap"]["airflow"]["externalDatabase"]["password"] = (
+            airflow_externaldb_password
+        )
 
         # cimpl-bootstrap-rabbitmq
-        data["cimpl-bootstrap-rabbitmq"]["rabbitmq"]["auth"][
-            "password"
-        ] = rabbitmq_password
+        data["cimpl-bootstrap-rabbitmq"]["rabbitmq"]["auth"]["password"] = (
+            rabbitmq_password
+        )
 
         # OSDU Services values
         data["core-plus-crs-catalog-deploy"]["global"]["domain"] = domain
