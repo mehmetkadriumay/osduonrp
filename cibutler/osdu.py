@@ -946,6 +946,9 @@ def get_info(endpt, base_url=BASE_URL, timeout=5):
         # raise typer.Exit(1)
     if r.ok:
         return r.json()
+    else:
+        logger.error(f"Error {url}: {r.status_code} {r.text} reason: {r.reason} headers: {r.headers} elapsed: {r.elapsed}")
+        return None
 
 
 @cli.command(rich_help_panel="OSDU Related Commands")
@@ -998,6 +1001,8 @@ def info(
             if r:
                 console.print(f"{service.title()}:")
                 console.print(r)
+            else:
+                logger.warning(f"Error {conf.osdu_end_points[service]['api']}: Unable to get info")
         else:
             error_console.print(f"Unknown service: {service}")
     else:
