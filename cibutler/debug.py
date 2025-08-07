@@ -33,7 +33,13 @@ def partition_debug(
     Debug the CImpl installation by checking the partition service.
     """
     name = "partition_service_response.json"
-    response = requests.get(f"http://osdu.{host}/api/partition/v1/partitions/osdu")
+    try:
+        response = requests.get(f"http://osdu.{host}/api/partition/v1/partitions/osdu")
+    except requests.RequestException as e:
+        error_console.print(f":x: Error connecting to partition service: {e}")
+        logger.error(f"Error connecting to partition service: {e}")
+        return None
+
     if response.status_code != 200:
         error_console.print(
             f":x: Error connecting to partition service at http://osdu.{host}/api/partition/v1/partitions/osdu"
@@ -63,7 +69,12 @@ def package():
 
 
 @diag_cli.command(rich_help_panel="CI Butler Diagnostic Commands")
-def inspect():
+def inspect(
+    force: Annotated[
+        bool, typer.Option("--force", "--yes", help="No confirmation prompt")
+    ] = False,
+
+):
     """
     Report CIButler diagnostics into a zip file.
 
@@ -72,6 +83,18 @@ def inspect():
     """
     namespace = "default"
     home = str(Path.home())
+
+    context = cik8s.get_currentcontext()
+    if context is None:
+        error_console.print(
+            ":x: No current context set. Please run `cibutler use-context` to set the current context."
+        )
+        return
+    elif "minikube" in context:
+        console.print(":warning: Minikube detected. Please make sure you have tunnel running.", style="bold yellow")
+        if not force:
+            typer.confirm("Confirm tunnel is running?", abort=True)
+
 
     cik8s.log_kube_stats()
 
