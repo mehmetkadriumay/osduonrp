@@ -198,12 +198,12 @@ test-deployment-default-on-minkube:
     - kubectl get service --all-namespaces
     - uv run $PACKAGE status --threshold=5 || echo "status failed"
     - uv run $PACKAGE groups || echo "groups failed" || echo "groups failed"
+    - uv run $PACKAGE diag inspect || echo "diag inspect failed"
     - if [ -e "/tmp/wake-up" ]; then sleep 30m; else echo "no pause file detected"; fi
     - uv run $PACKAGE delete --force || echo "delete failed"
     - "[ $result == 0 ]"
   after_script:
     - echo "After script running"
-    - uv run $PACKAGE diag inspect 
     - cp /root/cibutler.log cibutler.log
     - minikube logs > minikube.log || echo "getting logs failed"
   needs: []
