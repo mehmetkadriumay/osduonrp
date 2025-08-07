@@ -21,7 +21,7 @@ diag_cli = typer.Typer(
 )
 
 
-@diag_cli.command(rich_help_panel="Terraform Related Commands")
+@diag_cli.command(rich_help_panel="Terraform Related Commands", hidden=True)
 def tf(
     dir: Annotated[Optional[Path], typer.Option()] = None,
     keys: Annotated[bool, typer.Option()] = False,

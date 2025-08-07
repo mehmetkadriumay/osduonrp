@@ -1,5 +1,4 @@
 import subprocess
-
 from rich.console import Console
 import typer
 import asyncio
@@ -7,6 +6,10 @@ from pyhelm3 import Client, Chart, ChartNotFoundError, CommandCancelledError
 from pydantic import ValidationError
 import typing
 from cibutler.shell import run_shell_command
+from cibutler.releases import select_version
+from pathlib import Path
+import re
+import shutil
 import logging
 
 from typing_extensions import Annotated
@@ -278,12 +281,114 @@ def helm_list():
         return output.stdout.decode("ascii").strip()
 
 
+@diag_cli.command(rich_help_panel="Helm Diagnostic Commands")
+def helm_pull(
+    dir: Annotated[str, typer.Option(help="Directory to save the chart")] = None,
+    force: Annotated[
+        bool, typer.Option("--force", help="Delete existing directory if it exists")
+    ] = False,
+):
+    """
+    Pull the helm chart to a directory for local inspection and testing.
+    """
+    version, source = select_version()
+    if dir is None:
+        dir = str(Path.home() / f"osdu-cimpl-{version}")
+
+    if Path(dir).exists():
+        if force:
+            with console.status(f"Removing existing directory {dir}..."):
+                shutil.rmtree(dir)
+                console.print(f"Removed existing directory: {dir}")
+        else:
+            error_console.print(f"Directory {dir} already exists. Please remove it or use --force.")
+            raise typer.Abort()
+
+    run_shell_command(
+        f"helm pull {source} --version {version} --untar --untardir {dir}"
+        )
+    console.print(f"Helm chart pulled to {dir}")
+
+def helm_template_cmd(version, source, set=None):
+    try:
+        if set:
+            output = subprocess.Popen(
+                ["helm", "template", source, "--version", version, "--set", set],
+                stdout=subprocess.PIPE,
+            ).communicate()[0]
+        else:
+            # Default command without additional set values
+            # This will use the default values from the chart
+            # and will not include any additional set values
+            output = subprocess.Popen(
+                ["helm", "template", source, "--version", version],
+                stdout=subprocess.PIPE,
+            ).communicate()[0]
+        return output.decode("utf-8").strip()
+    except subprocess.CalledProcessError as err:
+            error_console.print(f":x: Error getting template for {source}: {err}")
+    except Exception as err:
+            error_console.print(f":x: Error getting template for {source}: {err}")
+
+@diag_cli.command(rich_help_panel="Helm Diagnostic Commands")
+def helm_template(
+    pull: Annotated[
+        bool, typer.Option("--pull", "--download", help="Docker pull images from the chart")
+    ] = False,
+    debug: Annotated[
+        bool, typer.Option("--debug", help="Enable invalid yaml")
+    ] = False,
+    image: Annotated[
+        bool, typer.Option("--image", help="Find images in the chart")
+    ] = False,
+    set: Annotated[
+        str, typer.Option("--set", help="set values on the command line (can specify multiple or separate values with commas: key1=val1,key2=val2)")
+    ] = None,
+):
+    """
+    Helm template command to render the chart locally, get the images, or pull them for local testing.
+    """
+    version, source = select_version()
+    if debug:
+        run_shell_command(
+            f"helm template {source} --version {version} --debug"
+        )
+    elif image or pull:
+        response = helm_template_cmd(version, source, set)
+        items = re.findall(r"image:\s*['\"]?([^'\"]+)['\"]?", response)
+        for x in items:
+            image_path = x.split()[0]  # Get the first part of the image string
+            if pull:
+                console.print(f"Pulling Docker image {image_path}...")
+                run_shell_command(f"docker pull {image_path}")
+            else:
+                console.print(f"{image_path}")
+    elif set:
+        run_shell_command(
+            f"helm template {source} --version {version} --set '{set}'"
+        )
+    else:
+        run_shell_command(
+            f"helm template {source} --version {version}"
+        )
+
+
 @diag_cli.command(rich_help_panel="Helm Diagnostic Commands", name="helm-list")
-def helm_list_command():
+def helm_list_command(
+    save: Annotated[bool, typer.Option(help="Save to file")] = False,
+):
     """
     Show all releases in all namespaces
     """
-    console.print(helm_list())
+    if save:
+        name = "helm_list.txt"
+        with open(name, "w") as f:
+            f.write(helm_list())
+        console.print(f":white_check_mark: Helm list saved to {name}")
+        logger.info(f"Helm list saved to {name}")
+        return name
+    else:
+        console.print(helm_list())
 
 
 def helm_query(name):

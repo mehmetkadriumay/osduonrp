@@ -8,6 +8,7 @@ import os
 from typing_extensions import Annotated
 from zipfile import ZipFile
 import cibutler.cik8s as cik8s
+import cibutler.cihelm as cihelm
 
 logger = logging.getLogger(__name__)
 
@@ -23,7 +24,7 @@ diag_cli = typer.Typer(
 )
 
 
-@diag_cli.command(rich_help_panel="CImpl Diagnostic Commands", name="debug")
+@diag_cli.command(rich_help_panel="CI Butler Diagnostic Commands", name="debug")
 def partition_debug(
     host: Annotated[str, typer.Option(help="host")] = "localhost",
     save: Annotated[bool, typer.Option(help="Save to file")] = False,
@@ -40,7 +41,7 @@ def partition_debug(
         logger.error(
             f"Error connecting to partition service at http://osdu.{host}/api/partition/v1/partitions/osdu"
         )
-        return
+        return None
 
     if save:
         with open(name, "w") as f:
@@ -55,10 +56,19 @@ def partition_debug(
         logger.info(f"Response from partition service: {response.json()}")
 
 
-@diag_cli.command(rich_help_panel="CImpl Diagnostic Commands")
+@diag_cli.command(rich_help_panel="CI Butler Diagnostic Commands", deprecated=True)
 def package():
+    """This is a deprecated command. Use `cibutler diag inspect` instead."""
+    inspect()
+
+
+@diag_cli.command(rich_help_panel="CI Butler Diagnostic Commands")
+def inspect():
     """
-    Package CIButler diagnostics into a zip file.
+    Report CIButler diagnostics into a zip file.
+
+    This command will inspect your installation. It will create a zip of logs and traces which can
+    be attached to an issue filed against the CI Butler project.
     """
     namespace = "default"
     home = str(Path.home())
@@ -71,29 +81,46 @@ def package():
     storage_classes_file = cik8s.get_storage_classes(save=True)
     list_pods_file, list_pods_json_file = cik8s.list_pods(save=True)
     cik8s.describe(what="nodes", namespace=namespace, save=True)
+    helm_list_file = cihelm.helm_list_command(save=True)
 
     with console.status("Packaging diagnostics..."):
         with ZipFile("cibutler.zip", "w") as zip:
-            zip.write(partition_file)
-            zip.write(list_pods_file)
-            zip.write(list_pods_json_file)
-            zip.write(not_running_file)
-            zip.write(services_file)
-            zip.write(storage_classes_file)
+            if partition_file:
+                zip.write(partition_file)
+            if list_pods_file:
+                zip.write(list_pods_file)
+            if list_pods_json_file:
+                zip.write(list_pods_json_file)
+            if not_running_file:
+                zip.write(not_running_file)
+            if services_file:
+                zip.write(services_file)
+            if storage_classes_file:
+                zip.write(storage_classes_file)
+            if helm_list_file:
+                zip.write(helm_list_file)
             for file in os.listdir("."):
                 if file.endswith("_describe.txt") or file.endswith("_logs.txt"):
                     zip.write(file)
                     os.remove(file)
             zip.write(f"{home}/cibutler.log")
-            console.print(":package: Diagnostics packaged into cibutler.zip")
+            console.print(":package: Report packaged into cibutler.zip")
 
     with console.status("Cleaning up..."):
-        os.remove(partition_file)
-        os.remove(list_pods_file)
-        os.remove(list_pods_json_file)
-        os.remove(not_running_file)
-        os.remove(storage_classes_file)
-        os.remove(services_file)
+        if partition_file:
+            os.remove(partition_file)
+        if list_pods_file:
+            os.remove(list_pods_file)
+        if list_pods_json_file:
+            os.remove(list_pods_json_file)
+        if not_running_file:
+            os.remove(not_running_file)
+        if storage_classes_file:
+            os.remove(storage_classes_file)
+        if services_file:
+            os.remove(services_file)
+        if helm_list_file:
+            os.remove(helm_list_file)
 
 
 if __name__ == "__main__":
