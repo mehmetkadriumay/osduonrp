@@ -311,7 +311,7 @@ def check_running(
                     This may be an issue with OSDU or with the container image, either way
                     CIButler is not able to handle this particular situation.
 
-                    If you want to package logs and diagnostics, you can run 'cibutler diag package' command.
+                    If you want to package logs and diagnostics, you can run 'cibutler diag inspect' command.
 
                     See https://osdu.pages.opengroup.org/ui/cibutler/troubleshooting/ for troubleshooting tips
                     """

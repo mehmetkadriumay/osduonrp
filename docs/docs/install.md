@@ -1,23 +1,25 @@
-# Install :material-download:
+# Install CI Butler :material-download:
 ## Requirements for using CI Butler and deploying CImpl locally
 
-!!! example "Support"
+!!! example "Supported Targets for Deployment"
     Currently CI Butler supports:
 
     - **[Minikube](https://minikube.sigs.k8s.io/) with Docker**,
     - **Kubernetes with Docker-Desktop** (built-in kubernetes using a singe-node cluster using [kubeadm](https://kubernetes.io/docs/reference/setup-tools/kubeadm/)) and
-    - **[MicroK8s](https://microk8s.io/)** (Ubuntu only, but Rocky Linux 9 on roadmap).
+    - **[MicroK8s](https://microk8s.io/)** (single-node with Ubuntu only, but Rocky Linux 9 on roadmap),
+    - **[K3d](https://k3d.io/stable/)** single-node is working, but not fully supported yet.
 
     Additional Support Notes:
 
     - Additionally CIButler only supports a single deployment to a kubernetes cluster.
-    - Multiple deployments to different Minikubes or separated by namespaces are not currently supported.
+    - Multiple deployments to different Minikubes or deployments separated by namespaces are not currently supported.
     - Using both more than 1 deployment at a time (for example CImpl on minikube and CImpl on Kubernetes with Docker Desktop) at the same time is not currently supported. However if you manage the istio/ingress it should work.
 
     However in future support could be added for:
 
-    - Namespace separation (allowing multiple deployments) at least not in default namespace,
-    - Deploying to other small local kubernetes ([kind](https://kind.sigs.k8s.io/), [k3s](https://k3s.io/), [k3d](https://k3d.io/stable/), etc),
+    - Namespace separation (allowing multiple deployments) at least not in default namespace.
+    - Multi-node clusters
+    - Deploying to other small local kubernetes ([kind](https://kind.sigs.k8s.io/), [k3s](https://k3s.io/), etc),
     - Other remote kubernetes deployments (even cloud based, like [GKE](https://cloud.google.com/kubernetes-engine)),
     - Minikube support for more than docker driver (i.e. QEMU, Hyperkit, Hyper-V, KVM, Parallels, Podman, VirtualBox, VMware Fusion/Workstation, etc.)
 
@@ -26,10 +28,12 @@
 !!! info "Install Requirements for installing CImpl locally"
 
     If you're don't intend to install CImpl locally but are using CI Butler as part of a pipeline or automation these requirements can be ignored.
+    Please note each version of OSDU may have slightly different memory requirements. For example 0.28 takes slightly more RAM than 0.27.
 
     - Mac OS, Windows or Linux
     - 150GB of free disk space
-    - Min. 32GB of RAM on Windows and Linux. Min. of 24GB of RAM on Mac with M2 or newer. Hope to test more in the future. 24GB however may not be enough for any real testing.
+    - Min. 32GB of RAM on Windows and Linux.
+    - Min. 24GB of RAM on Apple Silicon M2 or newer with OSDU 0.27. 24GB however may not be enough for any real testing however.
     - 6 logical processors (aka vCPU). Limited success with 4 logical processors
 
     CIButler supports MacOS, Windows and Linux, and has been tested most often with:
@@ -37,7 +41,6 @@
     - MacOS Sequoia 15.2 and later
     - Windows11 - some users have reported needing [Microsoft C++ build tools](https://visualstudio.microsoft.com/visual-cpp-build-tools/) installed.
     - Ubuntu Linux
-
 
 ## Installation Instructions
 
@@ -151,150 +154,7 @@ pipx install cibutler=="0.3rc0.dev248" --index-url https://community.opengroup.o
 
 When running cibutler CI Butler will try to log to `cibutler.log` in your home directory. You should have write permission to this directory/file or CI Butler may fail.
 
-## CI Butler Check Prerequisites
-
-``` bash title="Check Prerequisites"
-cibutler check
-```
-
-If no issues are reported you should have a successful deployment of OSDU CImpl
-
-## Install CImpl on Minikube
-
-By default CIButler will configure and start Minikube and use that as the target for CImpl.
-CI Butler will attempt to make educated guesses on how much RAM and CPU to give Minikube/CImpl based upon settings in Docker and the hardware that you have.
-
-```
-cibutler install
-```
-
-If you want to ignore these recommendations (especially useful if you have less CPU or RAM than required):
-
-```
-cibutler install --max-cpu --max-memory
-```
-
-If you want to have a install data loading and not have to select it later:
-
-``` bash title="Install with data loading in one step"
-cibutler install --data-load-flag=tno-volve-reference
-```
-
-If you want to have a more automated install without data loading:
-
-``` bash title="Install without data loading in one step"
-cibutler install --data-load-flag=skip --force
-```
-You can also add a `--quiet` less output.
-
-For more details on what happens in the CImpl install process see [install process](install_process.md).
-For full options on install see [Command Reference](./commands_reference.md).
-
-## Install CImpl on Kubernetes with Docker Desktop
-
-Make sure you have your kubernetes context to `docker-desktop`.
-You can verify this with 
-```
-cibutler current-context
-```
-
-Or change it with
-```
-cibutler use-context
-```
-
-``` bash title="Install on Kubernetes with Docker Desktop"
-cibutler install -k
-```
-
-## Confirm things are working
-
-### Minikube Tunnel
-
-!!! info "Tunnel"
-
-    Tunnelling is only required when you are deploying on Minikube.
-
-    Once you have CImpl deployed locally (with our without data) on minikube you'll need to run tunnel to be able to redirect your network to get to kubernetes pods running in the minikube docker container. Tunnel does require administrative privileges (via sudo on Mac and Linux).
-
-To do that, run one of the following:
-
-``` bash title="Tunnel"
-cibutler tunnel
-```
-Alternatively you can run `minikube tunnel`.
-You are now ready to connect to OSDU and other services like keycloak.
-
-### Get access/refresh tokens
-
-Get an access token:
-``` bash title="cibutler to get an Access Token"
-cibutler token
-```
-
-Get a refresh token:
-``` bash title="cibutler to get a Refresh Token"
-cibutler refresh-token
-```
-
-Or Curl command
-``` bash title="Curl to get access token"
-curl --location 'http://keycloak.localhost/realms/osdu/protocol/openid-connect/token' \
---header 'Content-Type: application/x-www-form-urlencoded' \
---data-urlencode 'grant_type=client_credentials' \
---data-urlencode 'client_id=osdu-admin' \
---data-urlencode 'client_secret=your-client-secret' \
---data-urlencode 'scope=email openid profile'
-```
-
-### Status
-
-``` bash title="cibutler to check status of OSDU services"
-cibutler status
-```
-
-### Get Client Secret
-
-One of the following:
-
-``` bash title="cibutler to check get client-secret"
-cibutler diag client-secret
-```
-
-alternatively you can run kubectl directly:
-
-``` bash title="kubectl command"
-kubectl get secret keycloak-bootstrap-secret -o jsonpath="{.data.KEYCLOAK_OSDU_ADMIN_SECRET}" | base64 --decode
-```
-
-### Fetch the WellboreTrajectory 1.1.0 schema:
-
-There isn't a built-in cibutler command for this
-``` bash title="Curl to get schema"
-curl --location 'http://osdu.localhost/api/schema-service/v1/schema/osdu:wks:work-product-component--WellboreTrajectory:1.1.0' \
---header 'Content-Type: application/json' \
---header 'data-partition-id: osdu' \
---header 'Authorization: Bearer <access_token_here>'
-```
-
-## Data loading
-
-By default `cibutler install` will not exit until data loading is completed. However you can also check that data loading finished by running:
-
-``` bash title="kubectl command"
-kubectl get po | grep bootstrap-data
-```
-
-Or use K9s to check on the pod status
-When pods in Ready column will look like "1/1" the process is finished.
-
-## Delete / Uninstall
-
-### To completely remove CImpl run 
-
-- `cibutler delete`
-
-### To completely remove cibutler
+## Uninstall cibutler
 
 `pipx uninstall cibutler`
 
@@ -310,13 +170,3 @@ To just run the update to latest
 ``` bash title="update command"
 cibutler update
 ``` 
-
-!!! question "Additional Documentation is Available"
-    **CI Butler has great built-in help**:
-
-     - `cibutler --help` for overall help
-     - `cibutler command --help` for help on a individual command
-
-    There is also a command feference on all the commands and options:
-
-    - See [Command Reference](./commands_reference.md).
