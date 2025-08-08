@@ -73,7 +73,6 @@ def inspect(
     force: Annotated[
         bool, typer.Option("--force", "--yes", help="No confirmation prompt")
     ] = False,
-
 ):
     """
     Report CIButler diagnostics into a zip file.
@@ -91,10 +90,12 @@ def inspect(
         )
         return
     elif "minikube" in context:
-        console.print(":warning: Minikube detected. Please make sure you have tunnel running.", style="bold yellow")
+        console.print(
+            ":warning: Minikube detected. Please make sure you have tunnel running.",
+            style="yellow",
+        )
         if not force:
             typer.confirm("Confirm tunnel is running?", abort=True)
-
 
     cik8s.log_kube_stats()
 

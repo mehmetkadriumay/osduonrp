@@ -71,17 +71,30 @@ def list_pods(
             f.write(str(ret))
         console.print(f":white_check_mark: Pods list saved to {json_name}")
         for i in track(ret.items, description="Saving pod logs and descriptions..."):
-            # console.print(f"Saving logs and description for pod {i.metadata.name}...")
-            describe_txt = get_describe(
-                what="pod", thing=i.metadata.name, namespace=i.metadata.namespace
-            )
-            with open(f"{i.metadata.name}_describe.txt", "w") as descf:
-                descf.write(describe_txt)
-                # console.print(f":white_check_mark: saved describe for {i.metadata.name} to {i.metadata.name}_describe.txt")
-            pod_log = pod_logs(pod_name=i.metadata.name, namespace=i.metadata.namespace)
-            with open(f"{i.metadata.name}_logs.txt", "w") as logf:
-                logf.write(pod_log)
-                # console.print(f":white_check_mark: saved logs for {i.metadata.name} to {i.metadata.name}_logs.txt")
+            try:
+                describe_txt = get_describe(
+                    what="pod", thing=i.metadata.name, namespace=i.metadata.namespace
+                )
+                with open(f"{i.metadata.name}_describe.txt", "w") as descf:
+                    descf.write(describe_txt)
+                    logger.info(
+                        f"saved describe for {i.metadata.name} to {i.metadata.name}_describe.txt"
+                    )
+                pod_log = pod_logs(
+                    pod_name=i.metadata.name, namespace=i.metadata.namespace
+                )
+                with open(f"{i.metadata.name}_logs.txt", "w") as logf:
+                    logf.write(pod_log)
+                    logger.info(
+                        f"saved logs for {i.metadata.name} to {i.metadata.name}_logs.txt"
+                    )
+            except Exception as err:
+                logger.error(
+                    f"Error saving logs or description for pod {i.metadata.name}: {err}"
+                )
+                error_console.print(
+                    f":x: Error saving logs or description for pod {i.metadata.name}: {err}"
+                )
 
         return txt_name, json_name
     else:
@@ -278,6 +291,7 @@ def get_describe(what="pods", label=None, thing=None, namespace="default"):
             ).communicate()[0]
         return output.decode("utf-8").strip()
     except Exception as err:
+        logger.error(f"Error describing {what} {thing}: {err}")
         error_console.print(f":x: Error describing {what} {thing}: {err}")
 
 
@@ -305,6 +319,7 @@ def pod_containers(pod_name, namespace="default"):
         return f"Error getting containers for pod {pod_name}: {err}"
 
 
+@diag_cli.command(rich_help_panel="Kubernetes Diagnostic Commands", hidden=True)
 def pod_logs(pod_name, namespace="default"):
     containers = pod_containers(pod_name=pod_name, namespace=namespace)
     for container in containers:
@@ -318,9 +333,21 @@ def pod_logs(pod_name, namespace="default"):
             ).communicate()[0]
             return output.decode("utf-8").strip()
         except subprocess.CalledProcessError as err:
+            logger.error(
+                f"Error getting logs for pod {pod_name} in namespace {namespace} for container {container}: {err}"
+            )
             error_console.print(f":x: Error getting logs for pod {pod_name}: {err}")
             return f"Error getting logs for pod {pod_name}: {err}"
+        except UnicodeDecodeError as err:
+            logger.error(
+                f"Error decoding logs for pod {pod_name} in namespace {namespace} for container {container}: {err}"
+            )
+            error_console.print(f":x: Error decoding logs for pod {pod_name}: {err}")
+            return f"Error decoding logs for pod {pod_name}: {err}"
         except Exception as err:
+            logger.error(
+                f"Error getting logs for pod {pod_name} in namespace {namespace} for container {container}: {err}"
+            )
             error_console.print(f":x: Error getting logs for pod {pod_name}: {err}")
             return f"Error getting logs for pod {pod_name}: {err}"
 
