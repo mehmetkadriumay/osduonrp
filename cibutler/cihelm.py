@@ -301,13 +301,16 @@ def helm_pull(
                 shutil.rmtree(dir)
                 console.print(f"Removed existing directory: {dir}")
         else:
-            error_console.print(f"Directory {dir} already exists. Please remove it or use --force.")
+            error_console.print(
+                f"Directory {dir} already exists. Please remove it or use --force."
+            )
             raise typer.Abort()
 
     run_shell_command(
         f"helm pull {source} --version {version} --untar --untardir {dir}"
-        )
+    )
     console.print(f"Helm chart pulled to {dir}")
+
 
 def helm_template_cmd(version, source, set=None):
     try:
@@ -326,23 +329,27 @@ def helm_template_cmd(version, source, set=None):
             ).communicate()[0]
         return output.decode("utf-8").strip()
     except subprocess.CalledProcessError as err:
-            error_console.print(f":x: Error getting template for {source}: {err}")
+        error_console.print(f":x: Error getting template for {source}: {err}")
     except Exception as err:
-            error_console.print(f":x: Error getting template for {source}: {err}")
+        error_console.print(f":x: Error getting template for {source}: {err}")
+
 
 @diag_cli.command(rich_help_panel="Helm Diagnostic Commands")
 def helm_template(
     pull: Annotated[
-        bool, typer.Option("--pull", "--download", help="Docker pull images from the chart")
+        bool,
+        typer.Option("--pull", "--download", help="Docker pull images from the chart"),
     ] = False,
-    debug: Annotated[
-        bool, typer.Option("--debug", help="Enable invalid yaml")
-    ] = False,
+    debug: Annotated[bool, typer.Option("--debug", help="Enable invalid yaml")] = False,
     image: Annotated[
         bool, typer.Option("--image", help="Find images in the chart")
     ] = False,
     set: Annotated[
-        str, typer.Option("--set", help="set values on the command line (can specify multiple or separate values with commas: key1=val1,key2=val2)")
+        str,
+        typer.Option(
+            "--set",
+            help="set values on the command line (can specify multiple or separate values with commas: key1=val1,key2=val2)",
+        ),
     ] = None,
 ):
     """
@@ -350,9 +357,7 @@ def helm_template(
     """
     version, source = select_version()
     if debug:
-        run_shell_command(
-            f"helm template {source} --version {version} --debug"
-        )
+        run_shell_command(f"helm template {source} --version {version} --debug")
     elif image or pull:
         response = helm_template_cmd(version, source, set)
         items = re.findall(r"image:\s*['\"]?([^'\"]+)['\"]?", response)
@@ -364,13 +369,9 @@ def helm_template(
             else:
                 console.print(f"{image_path}")
     elif set:
-        run_shell_command(
-            f"helm template {source} --version {version} --set '{set}'"
-        )
+        run_shell_command(f"helm template {source} --version {version} --set '{set}'")
     else:
-        run_shell_command(
-            f"helm template {source} --version {version}"
-        )
+        run_shell_command(f"helm template {source} --version {version}")
 
 
 @diag_cli.command(rich_help_panel="Helm Diagnostic Commands", name="helm-list")
