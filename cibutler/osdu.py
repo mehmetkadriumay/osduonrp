@@ -3,7 +3,6 @@ import requests
 import sys
 from requests.exceptions import ConnectionError, HTTPError
 import typer
-from rich.console import Console
 from rich.table import Table
 from typing import Optional, List
 import tenacity
@@ -27,6 +26,8 @@ import cibutler.conf as conf
 import cibutler.save as save
 import cibutler.utils as utils
 import logging
+from cibutler.common import console, error_console
+from rich.console import Console
 
 logger = logging.getLogger(__name__)
 
@@ -34,8 +35,6 @@ logger = logging.getLogger(__name__)
 This limit OSDU functionality is to help verify OSDU is install and working correctly.
 It also provides a convenient way to add users.
 """
-console = Console()
-error_console = Console(stderr=True, style="bold red")
 
 cli = typer.Typer(
     rich_markup_mode="rich", help="Community Implementation", no_args_is_help=True

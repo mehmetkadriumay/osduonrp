@@ -1,7 +1,6 @@
 from subprocess import call
 import os
 import typer
-from rich.console import Console
 import rich.progress
 import ruamel.yaml
 import platform
@@ -11,15 +10,14 @@ import inquirer
 import shlex
 import base64
 import logging
+from rich.panel import Panel
 from typing_extensions import Annotated
 import cibutler.cik8s as cik8s
 import cibutler.utils as utils
 from cibutler.shell import run_shell_command
+from cibutler.common import console, error_console
 
 logger = logging.getLogger(__name__)
-
-console = Console(log_path=False)
-error_console = Console(stderr=True, style="bold red")
 
 cli = typer.Typer(
     rich_markup_mode="rich", help="Community Implementation", no_args_is_help=True
@@ -94,10 +92,16 @@ def install_cimpl(
 
     console.print(f"Using RabbitMQ password: {rabbitmq_password}")
     console.print(f"Using Redis password: {redis_password}")
+    logger.debug(f"Using RabbitMQ password: {rabbitmq_password}")
+    logger.debug(f"Using Redis password: {redis_password}")
     console.log(f"Core Unit Deploy Enabled: {unit_enabled}")
+    logger.info(f"Core Unit Deploy Enabled: {unit_enabled}")
     console.log(f"Core CRS Catalog Deploy Enabled: {crs_catalog_enabled}")
+    logger.info(f"Core CRS Catalog Deploy Enabled: {crs_catalog_enabled}")
     console.log(f"Core CRS Converter Deploy Enabled: {crs_converter_enabled}")
+    logger.info(f"Core CRS Converter Deploy Enabled: {crs_converter_enabled}")
     console.log(f"Core Policy Deploy Enabled: {policy_enabled}")
+    logger.info(f"Core Policy Deploy Enabled: {policy_enabled}")
 
     console.log(f":pushpin: Requested install version {version} from {source}...")
 
@@ -228,6 +232,7 @@ def helm_install_notebook(notebook_source: str, version: str):
     with console.status("Getting ingress..."):
         ingress_ip = cik8s.get_ingress_ip()
     console.log(":fire: Installing Notebook...")
+    logger.info(f"Installing Notebook... {notebook_source} {version} {ingress_ip}")
     run_shell_command(
         f"helm upgrade --install cimpl-notebook {notebook_source} --version {version} --set conf.ingressIP={ingress_ip}"
     )
@@ -242,6 +247,71 @@ def readyandavailable(data):
     )
 
 
+def restart_entitlements():
+    logger.info(
+        "Restarting entitlements (deployment and bootstrap) due to keycloak and partition-bootstrap not ready"
+    )
+    console.print(
+        ":fire: [cyan]Restarting entitlements (deployment and bootstrap)...[/cyan]"
+    )
+    # kubectl rollout restart deploy entitlements > /dev/null
+    call(
+        ["kubectl", "rollout", "restart", "deploy", "entitlements"],
+        stdout=subprocess.DEVNULL,
+    )  # nosec
+    # kubectl rollout restart deploy entitlements-bootstrap > /dev/null
+    call(
+        ["kubectl", "rollout", "restart", "deploy", "entitlements-bootstrap"],
+        stdout=subprocess.DEVNULL,
+    )  # nosec
+
+
+@diag_cli.command(rich_help_panel="CImpl Diagnostic Commands", hidden=True)
+def display_error_msg(errors: int = 0, version: str = "unknown", minikube: bool = False, source: str = "unknown"):
+    output = f"""
+    Your system may still be usable, but these pods are not ready.
+    Notebook and Data loading will not be run. You can run them manually
+    however.
+
+    This may be an issue with helm chart, the container image, or the OSDU
+    service itself either way CI Butler is not currently able to handle this
+    particular situation.
+
+    Please review the logs of crashing pod with:
+    [code]kubectl logs <Name-of-the-pod>[/code]
+
+    If you want to package logs and diagnostics, you can run:
+    [code]cibutler diag inspect[/code]
+
+    For troubleshooting tips:
+        https://osdu.pages.opengroup.org/ui/cibutler/troubleshooting/
+    You can also raise an issue at:
+        https://community.opengroup.org/osdu/ui/cibutler/-/issues
+
+    version: {version} Deployment: {'Minikube' if minikube else 'Kubernetes'}
+    source: {source}
+    """
+
+    border_style = "yellow"
+    if errors > 3:
+        logger.error(f"There were {errors} errors during install.")
+        border_style = "red"
+        output = f"""
+    :x: [bold red]There were {errors} errors during install.[/bold red]
+        {output}
+    """
+
+    console.print(
+        Panel(
+            output,
+            border_style=border_style,
+            box=rich.box.SQUARE,
+            expand=True,
+            title="[cyan]CI Butler OSDU Install Failure [/cyan]",
+        )
+    )
+
+
 @diag_cli.command(rich_help_panel="CImpl Diagnostic Commands")
 def check_running(
     version: str,
@@ -251,6 +321,7 @@ def check_running(
     max_wait: int = 50,
     quiet: bool = False,
     entitlement_workaround: bool = False,
+    source: str = "unknown",
 ):
     """
     Check if CImpl is running (and make simple corrections)
@@ -264,6 +335,7 @@ def check_running(
         if not quiet:
             console.clear()
             call(["kubectl", "get", "po"])  # nosec
+
         pods_not_ready = cik8s.get_pods_not_running()
         duration = time.time() - start
         duration_str = utils.convert_time(duration)
@@ -275,25 +347,7 @@ def check_running(
                 and "partition-bootstrap" in pods_not_ready
                 and "keycloak-bootstrap" in pods_not_ready
             ):
-                console.print(
-                    ":fire: [cyan]Restarting entitlements (deployment and bootstrap)...[/cyan]"
-                )
-                # kubectl rollout restart deploy entitlements > /dev/null
-                call(
-                    ["kubectl", "rollout", "restart", "deploy", "entitlements"],
-                    stdout=subprocess.DEVNULL,
-                )  # nosec
-                # kubectl rollout restart deploy entitlements-bootstrap > /dev/null
-                call(
-                    [
-                        "kubectl",
-                        "rollout",
-                        "restart",
-                        "deploy",
-                        "entitlements-bootstrap",
-                    ],
-                    stdout=subprocess.DEVNULL,
-                )  # nosec
+                restart_entitlements()
 
             if flag.exit():
                 break
@@ -303,19 +357,10 @@ def check_running(
                 error_console.log(
                     f"There seems to be an issue with `{pods_not_ready}`."
                 )
-                console.print(
-                    """Please review the logs of crashing pod with 'kubectl logs <Name-of-the-pod>'
-                    Your system may still be usable, but these pods are not ready.
-                    Notebook and Data loading will not be run. You can run them manually however.
-
-                    This may be an issue with OSDU or with the container image, either way
-                    CIButler is not able to handle this particular situation.
-
-                    If you want to package logs and diagnostics, you can run 'cibutler diag inspect' command.
-
-                    See https://osdu.pages.opengroup.org/ui/cibutler/troubleshooting/ for troubleshooting tips
-                    """
+                logger.error(
+                    f"There seems to be an issue with `{pods_not_ready}`. Exiting after {max_wait} minutes. {duration_str} elapsed."
                 )
+                display_error_msg(errors, version=version, minikube=minikube)
                 break
 
             console.print()
@@ -326,6 +371,7 @@ def check_running(
             logger.info(
                 f":person_running: Pods not ready: {count}, elapsed: {duration_str}, version: {version}, {'Minikube' if minikube else 'Kubernetes'}",
             )
+            logger.info(f"Pods not ready: {pods_not_ready}")
             for _ in rich.progress.track(
                 range(sleep),
                 transient=True,
@@ -334,6 +380,7 @@ def check_running(
                 time.sleep(1)
         else:
             console.log(":thumbs_up: pods ready")
+            logger.info("Pods ready")
             bootstrap = "schema-bootstrap"
             data = cik8s.get_deployment_status(bootstrap)
             if data is None:
@@ -362,16 +409,11 @@ def check_running(
                         spinner="aesthetic",
                     ):
                         time.sleep(bootstrap_sleep)
+
         if errors > 3:
             error_console.log("Install failed. Too many errors")
-            console.print(
-                """Please get the logs of crashing pod with 'kubectl logs <Name-of-the-pod>
-
-                    This may be an issue with OSDU, with the container image, or with CIButler.
-                    See https://osdu.pages.opengroup.org/ui/cibutler/troubleshooting/
-                    """
-            )
-            logger.error("Install failed. Too many errors")
+            display_error_msg(errors, version=version, minikube=minikube)
+            logger.error(f"Install failed. Too many errors: {errors}")
             return False
 
     duration = time.time() - start
@@ -420,6 +462,7 @@ def bootstrap_upload_data(
         status = cik8s.get_deployment_status(bootstrap_data_legal)
         if "readyReplicas" in status and status["readyReplicas"]:
             console.log(":thumbs_up: Legal data bootstrapped.")
+            logger.info("Legal data bootstrapped.")
             break
         else:
             with console.status("Waiting for default legal tag"):

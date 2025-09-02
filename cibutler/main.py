@@ -3,14 +3,16 @@
 import typer
 from typing_extensions import Annotated
 from typing import Optional
-from rich.console import Console
 from rich.panel import Panel
 import rich.box
 from rich.prompt import Confirm
+import os
 import time
 from pathlib import Path
 import platform
 import importlib.metadata
+import logging
+from dotenv import load_dotenv
 import cibutler.downloader as downloader
 import cibutler.utils as utils
 import cibutler.cik8s as cik8s
@@ -43,25 +45,20 @@ import cibutler.conf as conf
 import cibutler.debug as cidebug
 import cibutler.config as config
 import cibutler.check as cicheck
-import logging
-from dotenv import load_dotenv
 from cibutler._version import __version__ as cibutler_version
+from cibutler.common import console, error_console, save_console_text, HOME, LOGLEVEL
 
-home = str(Path.home())
+# loading variables from .env file
+
 logging.basicConfig(
-    level=logging.INFO,
+    level=LOGLEVEL,
     format="%(asctime)s %(levelname)s %(module)s %(funcName)s %(lineno)d %(message)s",
-    filename=f"{home}/{conf.logfile}",
+    filename=f"{HOME}/{conf.logfile}",
     filemode="a",
     encoding="utf-8",
 )
 logger = logging.getLogger("cibutler")
 
-# loading variables from .env file
-load_dotenv(Path.home().joinpath(".env.cibutler"))
-
-console = Console(log_path=False)
-error_console = Console(stderr=True, style="bold red")
 
 cli = typer.Typer(
     rich_markup_mode="rich",
@@ -445,7 +442,7 @@ def install(
         else:
             minikube = False
 
-    if not version and not source:
+    if not version or not source:
         if force:
             console.print(":warning: No version or source provided.")
             version, source = releases.select_version(defaults=True)
@@ -540,6 +537,7 @@ def install(
         entitlement_workaround=True,
         quiet=quiet,
         max_wait=max_wait,
+        source=source
     ):
         error_console.log(
             f"Installation of {version} has failed on {platform.platform()}"
@@ -547,6 +545,7 @@ def install(
         logger.error(f"Installation of {version} has failed on {platform.platform()}")
         cik8s.kube_log_node_info()
         cik8s.log_kube_stats()
+        save_console_text()
         raise typer.Exit(1)
 
     duration = time.time() - start
@@ -586,10 +585,12 @@ def install(
     duration_str = utils.convert_time(duration)
     logger.info(f"Install command completed in {duration_str}")
     console.log(f"Install ({version}) command completed in {duration_str}")
+    save_console_text()
 
 
 def data_load(data_load_flag, data_source, data_version, wait_for_complete=True):
     load_work_products = False
+    logger.info(f"Data load option: {data_load_flag}")
     if data_load_flag and "skip" in data_load_flag:
         console.log("Skipping data load")
         return

@@ -1,20 +1,15 @@
 import subprocess
-from rich.console import Console
 
 # from rich.progress import Progress
 from rich.progress import track
 import typer
 import logging
-import time
 import docker
 from typing_extensions import Annotated
 import cibutler.utils as utils
-
+from cibutler.common import console, error_console
 
 logger = logging.getLogger(__name__)
-
-console = Console()
-error_console = Console(stderr=True, style="bold red")
 
 cli = typer.Typer(
     rich_markup_mode="rich", help="Community Implementation", no_args_is_help=True

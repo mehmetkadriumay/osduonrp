@@ -1,5 +1,4 @@
 import subprocess
-from rich.console import Console
 import typer
 import asyncio
 from pyhelm3 import Client, Chart, ChartNotFoundError, CommandCancelledError
@@ -19,11 +18,9 @@ from pydantic import (
     FilePath,
     HttpUrl,
 )
+from cibutler.common import console, error_console
 
 logger = logging.getLogger(__name__)
-
-console = Console()
-error_console = Console(stderr=True, style="bold red")
 
 cli = typer.Typer(
     rich_markup_mode="rich", help="Community Implementation", no_args_is_help=True

@@ -31,7 +31,10 @@ def select_version(defaults: bool = False):
         "0.27.0-local-test      (M24 Oct 2024 x86)       Untested            GC BareMetal": "oci://us-central1-docker.pkg.dev/or2-msq-gnrg-osdu-mp-t1iylu/cimpl/helm/osdu-cimpl",
         "0.27.2                 (M24 Nov 2024 x86 only)  Untested            GC BareMetal": "oci://us-central1-docker.pkg.dev/or2-msq-gnrg-osdu-mp-t1iylu/cimpl/helm/osdu-cimpl",
         "0.27.3                 (M24 Jan 2025 x86 only)  Untested            GC BareMetal": "oci://us-central1-docker.pkg.dev/or2-msq-gnrg-osdu-mp-t1iylu/cimpl/helm/osdu-cimpl",
-        "0.28.0-local-c18982c9a (M25 April 2025 multi)   Tested *            GC BareMetal": "oci://us-central1-docker.pkg.dev/or2-msq-gnrg-osdu-mp-t1iylu/cimpl/helm/osdu-cimpl",
+        "0.28.0-local-c18982c9a (M25 Apr 2025 multi)     Tested *            GC BareMetal": "oci://us-central1-docker.pkg.dev/or2-msq-gnrg-osdu-mp-t1iylu/cimpl/helm/osdu-cimpl",
+        "0.0.7-latest           (M25 Aug  2025 x86 only) Untested *          OSDU CIMPL":   "oci://community.opengroup.org:5555/osdu/platform/deployment-and-operations/base-containers-cimpl/osdu-cimpl-stack/cimpl-helm/osdu-cimpl-stack",
+        "0.0.7-117a64b8         (M25 Aug  2025 x86 only) Broken   *          OSDU CIMPL":   "oci://community.opengroup.org:5555/osdu/platform/deployment-and-operations/base-containers-cimpl/osdu-cimpl-stack/cimpl-helm/osdu-cimpl-stack",
+        "0.28.4                 (M25 Aug  2025 x86 only) Tested and Working  GC BareMetal": "oci://us-central1-docker.pkg.dev/or2-msq-gnrg-osdu-mp-t1iylu/cimpl/helm/osdu-cimpl",
     }
 
     options = []

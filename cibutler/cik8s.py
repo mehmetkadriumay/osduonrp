@@ -2,25 +2,21 @@ import typer
 import subprocess
 import shlex
 import json
-import platform
 from pick import pick
-from rich.console import Console
+from pathlib import Path
+import os
+import logging
 from rich.progress import track
 from kubernetes import client, config
 from kubernetes.client.rest import ApiException
 from typing_extensions import Annotated
 from cibutler.shell import run_shell_command
-from pathlib import Path
-import os
-import logging
+from cibutler.common import console, error_console
 
 logger = logging.getLogger(__name__)
 
 # in future will need from kubernetes.client import configuration
 # and from kubernetes.client.rest import ApiException
-
-console = Console()
-error_console = Console(stderr=True, style="bold red")
 
 cli = typer.Typer(
     rich_markup_mode="rich", help="Community Implementation", no_args_is_help=True
