@@ -1,11 +1,9 @@
-from cibutler.shell import run_shell_command
-from rich.console import Console
-import cibutler.cihelm as cihelm
 import logging
+import cibutler.cihelm as cihelm
+from cibutler.shell import run_shell_command
+from cibutler.common import console, error_console
 
 logger = logging.getLogger(__name__)
-console = Console()
-error_console = Console(stderr=True, style="bold red")
 
 
 def check_istio():
@@ -39,7 +37,7 @@ def install_istio(
     )
     run_shell_command(f"helm upgrade --install istiod istio/istiod -n {namespace}")
     run_shell_command(
-        f"helm upgrade --install istio-ingress istio/gateway -n {namespace} --set labels.istio=ingressgateway"
+        f"helm upgrade --install istio-ingress istio/gateway -n {namespace} --set labels.istio=ingressgateway --skip-schema-validation"
     )
 
     if check_istio():

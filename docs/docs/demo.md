@@ -1,4 +1,4 @@
-# Demo :octicons-video-24:
+# Demos and Recordings :octicons-video-24:
 
 ## Installation of CI Butler
 

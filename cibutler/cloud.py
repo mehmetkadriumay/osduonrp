@@ -1,18 +1,15 @@
 import typer
-from rich.console import Console
 import logging
 from fabric import Connection
 from typing_extensions import Annotated
 from cibutler.shell import run_shell_command
 import subprocess
 import time
+from cibutler.common import console, error_console
 
 # gcloud compute config-ssh
 
 logger = logging.getLogger(__name__)
-
-console = Console()
-error_console = Console(stderr=True, style="bold red")
 
 cli = typer.Typer(
     rich_markup_mode="rich", help="Community Implementation", no_args_is_help=True

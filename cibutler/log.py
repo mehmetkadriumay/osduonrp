@@ -51,6 +51,9 @@ def tail(
     with open(file_path, "r") as file:
         # Move the pointer to the end of the file
         file.seek(0, 2)
+        file_size = file.tell()
+        # Move the pointer backwards to read the last 2KB
+        file.seek(max(file_size - 2*1024, 0))
         while True:
             if flag.exit():
                 raise typer.Exit()

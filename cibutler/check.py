@@ -1,5 +1,4 @@
 import typer
-from rich.console import Console
 from typing_extensions import Annotated
 import inquirer
 import platform
@@ -13,11 +12,10 @@ import cibutler.cidocker as cidocker
 import cibutler.utils as utils
 import cibutler.ciminikube as ciminikube
 import cibutler.update as update
+from cibutler.common import console, error_console, save_console_text
 
 logger = logging.getLogger(__name__)
 
-console = Console()
-error_console = Console(stderr=True, style="bold red")
 
 cli = typer.Typer(
     rich_markup_mode="rich", help="Community Implementation", no_args_is_help=True
@@ -142,6 +140,7 @@ def check(
     elif "Darwin" in platform.system():
         check_installed(["sudo"])
 
+    save_console_text()
     return target
 
 
