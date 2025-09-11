@@ -430,6 +430,7 @@ def install(
         configured_options = config.config(defaults=True)
     else:
         target = check.check()
+        logger.info(f"Target selected: {target}")
         if "minikube" in target.lower():
             minikube = True
             running_on_docker = True
@@ -439,6 +440,9 @@ def install(
         elif "microk8s" in target.lower():
             minikube = False
             microk8s = True
+        elif "docker-desktop" in target.lower():
+            minikube = False
+            running_on_docker = True
         else:
             minikube = False
 

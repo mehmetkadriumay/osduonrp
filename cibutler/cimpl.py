@@ -544,8 +544,8 @@ def get_data_load_option(defaults: bool = False):
         "skip",
     ]
     title = """
-            dd-reference - upload only part of reference data (10000 records). Estimated time: ~10min,\n
-            partial-dd-reference - upload all for reference data. Estimated time: ~30min,
+            dd-reference - upload all for reference data. Estimated time: ~30min,
+            partial-dd-reference - upload only part of reference data (10000 records). Estimated time: ~10min,
             tno-volve-reference - upload all TNO data. Estimated time: ~1h 15min,
             all - upload reference and workproduct data Estimated time: ~4h,
 
