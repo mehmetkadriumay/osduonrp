@@ -10,6 +10,58 @@ import ruamel.yaml
 import cibutler.downloader as downloader
 import cibutler.utils as utils
 
+# Map of friendly service names to the helm value flags that enable/disable them.
+SERVICE_FLAG_MAP = {
+    # Infra building blocks
+    "Airflow": [
+        "airflow.enabled",
+        "airflow.airflow-infra-bootstrap.enabled",
+    ],
+    "Elastic": [
+        "elasticsearch.enabled",
+        "elasticsearch.elastic-infra-bootstrap.enabled",
+        "elastic-bootstrap.enabled",
+    ],
+    "Keycloak": [
+        "keycloak.enabled",
+        "keycloak.keycloak-infra-bootstrap.enabled",
+    ],
+    "Minio": [
+        "minio.enabled",
+        "minio.minio-infra-bootstrap.enabled",
+    ],
+    "PostgreSQL": [
+        "postgresql.enabled",
+        "postgresql.postgres-infra-bootstrap.enabled",
+    ],
+    "Common-Infra": [
+        "common-infra-bootstrap.enabled",
+    ],
+    "RabbitMQ-Bootstrap": [
+        "cimpl-bootstrap-rabbitmq.enabled",
+    ],
+    # OSDU services
+    "Crs-catalog": ["core-plus-crs-catalog-deploy.enabled"],
+    "Crs-conversion": ["core-plus-crs-conversion-deploy.enabled"],
+    "Dataset": ["core-plus-dataset-deploy.enabled"],
+    "Entitlements": ["core-plus-entitlements-deploy.enabled"],
+    "File": ["core-plus-file-deploy.enabled"],
+    "Indexer": ["core-plus-indexer-deploy.enabled"],
+    "Legal": ["core-plus-legal-deploy.enabled"],
+    "Notification": ["core-plus-notification-deploy.enabled"],
+    "Partition": ["core-plus-partition-deploy.enabled"],
+    "Policy": ["core-plus-policy-deploy.enabled"],
+    "Register": ["core-plus-register-deploy.enabled"],
+    "Schema": ["core-plus-schema-deploy.enabled"],
+    "Search": ["core-plus-search-deploy.enabled"],
+    "Storage": ["core-plus-storage-deploy.enabled"],
+    "Unit": ["core-plus-unit-deploy.enabled"],
+    "Wellbore": ["core-plus-wellbore-deploy.enabled"],
+    "Wellbore-Worker": ["core-plus-wellbore-worker-deploy.enabled"],
+    "Workflow": ["core-plus-workflow-deploy.enabled"],
+    "Secret": ["core-plus-secret-deploy.enabled"],
+}
+
 
 console = Console()
 error_console = Console(stderr=True, style="bold red")
@@ -25,7 +77,7 @@ diag_cli = typer.Typer(
 )
 
 
-configurable_services = ["Unit", "Policy", "Crs-catalog", "Crs-converter"]
+configurable_services = list(SERVICE_FLAG_MAP.keys())
 
 
 @diag_cli.command(rich_help_panel="CImpl Diagnostic Commands")
@@ -40,7 +92,7 @@ def config(
     """
     rabbitmq_password = utils.random_password()
     redis_password = utils.random_password()
-    default_choices = ["Crs-catalog", "Crs-converter"]
+    default_choices = configurable_services.copy()
     locked_choices = []
 
     if defaults:

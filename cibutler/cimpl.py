@@ -16,6 +16,7 @@ import cibutler.cik8s as cik8s
 import cibutler.utils as utils
 from cibutler.shell import run_shell_command
 from cibutler.common import console, error_console
+from cibutler.config import SERVICE_FLAG_MAP
 
 logger = logging.getLogger(__name__)
 
@@ -79,29 +80,53 @@ def install_cimpl(
     Install CImpl OCI registry or local source
     """
 
+    if configured_options is None:
+        configured_options = {}
+
     rabbitmq_password = configured_options.get(
         "rabbitmq_password", utils.random_password()
     )
     redis_password = configured_options.get("redis_password", utils.random_password())
-    osdu_services = configured_options.get("osdu_services")
+    selected_services = set(
+        configured_options.get("osdu_services", list(SERVICE_FLAG_MAP.keys()))
+    )
 
-    unit_enabled = str("Unit" in osdu_services).lower()
-    crs_catalog_enabled = str("Crs-catalog" in osdu_services).lower()
-    crs_converter_enabled = str("Crs-converter" in osdu_services).lower()
-    policy_enabled = str("Policy" in osdu_services).lower()
+    def enabled_flag(name: str) -> str:
+        return str(name in selected_services).lower()
 
     console.print(f"Using RabbitMQ password: {rabbitmq_password}")
     console.print(f"Using Redis password: {redis_password}")
     logger.debug(f"Using RabbitMQ password: {rabbitmq_password}")
     logger.debug(f"Using Redis password: {redis_password}")
-    console.log(f"Core Unit Deploy Enabled: {unit_enabled}")
-    logger.info(f"Core Unit Deploy Enabled: {unit_enabled}")
-    console.log(f"Core CRS Catalog Deploy Enabled: {crs_catalog_enabled}")
-    logger.info(f"Core CRS Catalog Deploy Enabled: {crs_catalog_enabled}")
-    console.log(f"Core CRS Converter Deploy Enabled: {crs_converter_enabled}")
-    logger.info(f"Core CRS Converter Deploy Enabled: {crs_converter_enabled}")
-    console.log(f"Core Policy Deploy Enabled: {policy_enabled}")
-    logger.info(f"Core Policy Deploy Enabled: {policy_enabled}")
+
+    helm_service_sets = []
+    for service, flags in SERVICE_FLAG_MAP.items():
+        enabled = enabled_flag(service)
+        console.log(f"{service} Deploy Enabled: {enabled}")
+        logger.info(f"{service} Deploy Enabled: {enabled}")
+        for flag in flags:
+            helm_service_sets.append(f"--set {flag}={enabled}")
+
+    # Legacy flags for older chart naming
+    legacy_flag_map = {
+        "Unit": ["core_unit_deploy.enabled"],
+        "Policy": [
+            "core_partition_deploy.data.policyServiceEnabled",
+            "core_policy_deploy.enabled",
+        ],
+        "Crs-catalog": [
+            "core_crs_catalog_deploy.enabled",
+            "core-crs-catalog-deploy.enabled",
+        ],
+        "Crs-conversion": [
+            "core_crs_converter_deploy.enabled",
+            "core-crs-converter-deploy.enabled",
+        ],
+    }
+    for service, flags in legacy_flag_map.items():
+        enabled = enabled_flag(service)
+        for flag in flags:
+            helm_service_sets.append(f"--set {flag}={enabled}")
 
     console.log(f":pushpin: Requested install version {version} from {source}...")
 
@@ -110,32 +135,22 @@ def install_cimpl(
         logger.info(f"Using OCI registry source {source} for CImpl {version}")
         console.log(f":fire: Using OCI registry source {source} for CImpl {version}")
 
-        if version.startswith("0.27."):
-            run_shell_command(
-                f"helm upgrade --install \
-            --set rabbitmq.auth.password={rabbitmq_password} \
-            --set global.redis.password={redis_password} \
-            {chart} {source} --version {version}"
-            )
-        else:
-            run_shell_command(
-                f"helm upgrade --install \
-            --set rabbitmq.auth.password={rabbitmq_password} \
-            --set global.redis.password={redis_password} \
-            --set core_unit_deploy.enabled={unit_enabled} \
-            --set core_partition_deploy.data.policyServiceEnabled={policy_enabled} \
-            --set core_policy_deploy.enabled={policy_enabled} \
-            --set core_crs_catalog_deploy.enabled={crs_catalog_enabled} \
-            --set core-crs-catalog-deploy.enabled={crs_catalog_enabled} \
-            --set core_crs_converter_deploy.enabled={crs_converter_enabled} \
-            --set core-crs-converter-deploy.enabled={crs_converter_enabled} \
-            {chart} {source} --version {version}"
-            )
+        helm_sets = [
+            f"--set rabbitmq.auth.password={rabbitmq_password}",
+            f"--set global.redis.password={redis_password}",
+        ]
+        helm_sets.extend(helm_service_sets)
+        run_shell_command(
+            f"helm upgrade --install {chart} {source} --version {version} "
+            + " ".join(helm_sets)
+        )
     else:
         # Local source
         logger.info(f"Using local source {source} for CImpl")
         console.log(f":fire: Using local source {source} for CImpl")
-        run_shell_command(f"helm upgrade --install {chart} {source}")
+        run_shell_command(
+            f"helm upgrade --install {chart} {source} " + " ".join(helm_service_sets)
+        )
 
     time.sleep(1)
 
