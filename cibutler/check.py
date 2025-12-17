@@ -79,7 +79,6 @@ def check(
         console.print(":white_check_mark: Minikube Selected")
         preflight_check_required()
         check_docker_server_version()
-        check_docker_memory_consumption()
         cimpl.check_hosts()
         if ciminikube.status():
             error_console.print(":x: Minikube Already running")
@@ -92,7 +91,6 @@ def check(
         cik8s.use_context(context="docker-desktop")
         preflight_check_required()
         check_docker_server_version()
-        check_docker_memory_consumption()
         k8s_checks()
         cimpl.check_hosts()
         check_storage_class(added_during_install=True)
@@ -163,24 +161,6 @@ def check_storage_class(added_during_install=False, name="standard"):
             return
 
     console.print(f":white_check_mark: Storage class {name} exists.")
-
-
-def check_docker_memory_consumption(required=26):
-    """
-    Check if memory is available in docker
-    """
-    mem_gb = cidocker.docker_mem_gb()
-    used_gb = cidocker.docker_memory_consumption_gb()
-    available_gb = mem_gb - used_gb
-    if available_gb < required:
-        error_console.print(
-            f":x: Not enough RAM available in docker {available_gb:.2f} GiB but {required} GiB recommended."
-        )
-        logger.error(f"Not enough RAM available in docker {available_gb:.2f} GiB.")
-    else:
-        console.print(
-            f":white_check_mark: Docker Reporting enough available RAM for install {available_gb:.2f} :thumbs_up:"
-        )
 
 
 def check_installed(external_utils):
@@ -332,18 +312,17 @@ def k8s_checks(required_cores=4, required_ram=23.2, ignore_ram=False):
     elif ignore_ram:
         console.print(
             f":warning: Possible not enough Allocatable RAM {gb_memory:.2f} in kubernetes",
-            style="bold red",
+            style="yellow",
         )
         logger.warning(
             f"Possible not enough Allocatable RAM {gb_memory:.2f} in kubernetes"
         )
     else:
         console.print(
-            f":x: Not enough Allocatable RAM for {gb_memory:.2f} kubernetes",
-            style="bold red",
+            f":warning: Not enough Allocatable RAM for {gb_memory:.2f} kubernetes",
+            style="yellow",
         )
-        logger.error(f"Not enough Allocatable RAM for {gb_memory:.2f} kubernetes")
-        raise typer.Exit(1)
+        logger.warning(f"Not enough Allocatable RAM for {gb_memory:.2f} kubernetes")
 
     # num_ready = int(cik8s.kube_istio_ready().split()[0])
     # if num_ready >= 1:

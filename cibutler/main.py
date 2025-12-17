@@ -1,5 +1,12 @@
 #!/usr/bin/env python3
 # CI Butler Shane Hutchins
+import collections
+import collections.abc
+# Click in certain environments still references the legacy collections names.
+for _name in ("Mapping", "MutableMapping", "MutableSet", "MutableSequence"):
+    if not hasattr(collections, _name):
+        setattr(collections, _name, getattr(collections.abc, _name))
+
 import typer
 from typing_extensions import Annotated
 from typing import Optional
